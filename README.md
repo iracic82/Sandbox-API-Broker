@@ -18,17 +18,34 @@ Build a high-performance, concurrent-safe Sandbox Broker API that allocates pre-
 
 ### Prerequisites
 - Python 3.11+
+- Docker & Docker Compose
 - AWS Account (for deployment)
-- Docker (for local development)
-- DynamoDB Local (optional, for testing)
 
-### Local Development
+### Local Development with Docker Compose
 
 ```bash
 # Clone repository
 git clone <repo-url>
 cd Sandbox-API-Broker
 
+# Start services (DynamoDB Local + API)
+docker compose up -d
+
+# Initialize database and seed test data
+docker cp init_and_seed.py sandbox-broker-api:/app/
+docker exec sandbox-broker-api python /app/init_and_seed.py
+
+# View API logs
+docker compose logs -f api
+
+# API available at http://localhost:8080
+# DynamoDB Local at http://localhost:8000
+# API docs at http://localhost:8080/v1/docs
+```
+
+### Manual Setup (without Docker)
+
+```bash
 # Create virtual environment
 python -m venv venv
 source venv/bin/activate  # or `venv\Scripts\activate` on Windows
@@ -40,7 +57,7 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your configuration
 
-# Run DynamoDB Local (optional)
+# Run DynamoDB Local
 docker run -p 8000:8000 amazon/dynamodb-local
 
 # Run the API
@@ -51,9 +68,13 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 
 See [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) for detailed implementation plan and progress tracking.
 
-**Current Phase**: Planning & Design ✅
+**Completed Phases**:
+- ✅ **Phase 1**: Core FastAPI + DynamoDB (allocation, deletion, idempotency)
+- ✅ **Phase 2**: Admin Endpoints + Structured Logging (list, sync, cleanup, stats)
 
-**Next Phase**: Phase 1 - Core FastAPI + Local Development
+**Current Phase**: Phase 3 - Background Jobs & Observability
+
+**Next Phase**: Phase 4 - Enhanced Security & Rate Limiting
 
 ## 🔑 Key Features
 
@@ -101,14 +122,25 @@ Headers:
 
 ### Admin Endpoints
 ```bash
-# List all sandboxes
-GET /v1/admin/sandboxes?status=available&limit=50
+# List all sandboxes with filtering and pagination
+GET /v1/admin/sandboxes?status=available&limit=50&cursor=<base64_cursor>
+Headers:
+  Authorization: Bearer <admin_token>
 
-# Trigger ENG sync
+# Get pool statistics
+GET /v1/admin/stats
+Headers:
+  Authorization: Bearer <admin_token>
+
+# Trigger ENG CSP sync
 POST /v1/admin/sync
+Headers:
+  Authorization: Bearer <admin_token>
 
 # Process pending deletions
 POST /v1/admin/cleanup
+Headers:
+  Authorization: Bearer <admin_token>
 ```
 
 ### Observability
@@ -225,16 +257,16 @@ See [Operational Runbook Scenarios](PROJECT_SUMMARY.md#operational-runbook-scena
 ## 🗺️ Roadmap
 
 - [x] Requirements & Design
-- [ ] Phase 1: Core FastAPI + Local Dev
-- [ ] Phase 2: API Endpoints & Logic
-- [ ] Phase 3: Observability & Metrics
-- [ ] Phase 4: Security & Auth
-- [ ] Phase 5: ENG Sync Job
-- [ ] Phase 6: Cleanup & Deletion
-- [ ] Phase 7: AWS Infrastructure
-- [ ] Phase 8: Testing & Load Testing
-- [ ] Phase 9: Deployment & CI/CD
-- [ ] Phase 10: Documentation
+- [x] **Phase 1**: Core FastAPI + DynamoDB + Allocation Logic
+- [x] **Phase 2**: Admin Endpoints + Structured JSON Logging
+- [ ] **Phase 3**: Background Jobs (EventBridge Scheduler)
+- [ ] **Phase 4**: Enhanced Security (Secrets Manager, Rate Limiting)
+- [ ] **Phase 5**: Observability (Prometheus Metrics, Dashboards)
+- [ ] **Phase 6**: AWS Infrastructure (Terraform, ECS Fargate)
+- [ ] **Phase 7**: Testing (Unit, Integration, Load Tests)
+- [ ] **Phase 8**: Deployment & CI/CD
+- [ ] **Phase 9**: GameDay Testing & Chaos Engineering
+- [ ] **Phase 10**: Production Hardening & Documentation
 
 ## 📝 License
 

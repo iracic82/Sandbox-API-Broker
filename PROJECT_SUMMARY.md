@@ -188,12 +188,15 @@ FOR EACH sandbox:
 - [x] Error handling (401, 403, 404, 409, 5xx)
 - [x] Tested and verified (see PHASE1_RESULTS.md)
 
-### Phase 2: Admin Endpoints & Background Jobs
-- [ ] Implement GET /v1/admin/sandboxes endpoint with pagination (filter by status)
-- [ ] Implement POST /v1/admin/sync endpoint (trigger ENG sync)
-- [ ] Implement POST /v1/admin/cleanup endpoint (process pending deletions)
-- [ ] Add structured JSON logging (request_id, track_id, sandbox_id, etc.)
-- [ ] Admin token authentication
+### Phase 2: Admin Endpoints & Background Jobs ✅
+- [x] Implement GET /v1/admin/sandboxes endpoint with pagination (filter by status)
+- [x] Implement GET /v1/admin/stats endpoint (pool statistics)
+- [x] Implement POST /v1/admin/sync endpoint (trigger ENG sync)
+- [x] Implement POST /v1/admin/cleanup endpoint (process pending deletions)
+- [x] Add structured JSON logging (request_id, track_id, sandbox_id, action, outcome, latency_ms)
+- [x] Admin token authentication (Bearer token)
+- [x] ENG CSP service integration (mock implementation)
+- [x] Middleware for automatic request/response logging
 
 ### Phase 3: Observability & Metrics
 - [ ] Implement Prometheus metrics endpoint (GET /metrics)

@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from app.core.config import settings
 from app.api.routes import router
+from app.api.admin_routes import router as admin_router
+from app.middleware.logging import LoggingMiddleware
 from app import __version__
 
 
@@ -18,6 +20,9 @@ app = FastAPI(
     redoc_url=f"{settings.api_base_path}/redoc",
     openapi_url=f"{settings.api_base_path}/openapi.json",
 )
+
+# Add middleware
+app.add_middleware(LoggingMiddleware)
 
 
 # Exception handlers
@@ -54,6 +59,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 # Include routers
 app.include_router(router, prefix=settings.api_base_path, tags=["sandboxes"])
+app.include_router(admin_router, prefix=settings.api_base_path, tags=["admin"])
 
 
 # Root endpoint
