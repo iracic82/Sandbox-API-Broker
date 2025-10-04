@@ -75,7 +75,7 @@ See [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) for detailed implementation plan an
 - ✅ **Phase 4**: Enhanced Security & Resilience (rate limiting, security headers, circuit breaker, CORS)
 - ✅ **Phase 5**: ENG CSP Production Integration (real API calls, mock/production mode, error handling)
 
-**Current Phase**: Phase 6 - AWS Infrastructure (Terraform, ECS, ALB, Secrets Manager)
+**Current Phase**: ✅ Phase 6 - AWS Infrastructure Complete!
 
 **Next Phase**: Phase 7 - Testing & Load Testing (Unit tests, integration tests, 1000 RPS load tests)
 
@@ -202,18 +202,43 @@ k6 run tests/load/allocation_test.js
 
 ## 🚢 Deployment
 
-```bash
-# Build Docker image
-docker build -t sandbox-broker-api .
+### Local Development
+See [Quick Start](#-quick-start) section above.
 
-# Push to ECR
+### AWS Production Deployment
+
+Full production deployment to AWS ECS Fargate using Terraform. See [terraform/README.md](terraform/README.md) for detailed guide.
+
+**Quick deployment:**
+```bash
+# Build and push Docker image to ECR
+docker build -t sandbox-broker-api .
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
 docker tag sandbox-broker-api:latest <account>.dkr.ecr.us-east-1.amazonaws.com/sandbox-broker-api:latest
 docker push <account>.dkr.ecr.us-east-1.amazonaws.com/sandbox-broker-api:latest
 
-# Deploy to ECS (via Terraform or manual)
+# Deploy infrastructure with Terraform
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your configuration
+terraform init
 terraform apply
+
+# Get API endpoint
+terraform output api_endpoint
 ```
+
+**Infrastructure includes:**
+- VPC with public/private subnets (multi-AZ)
+- ECS Fargate cluster with auto-scaling (2-10 tasks)
+- Application Load Balancer (HTTP/HTTPS)
+- DynamoDB table with 3 GSIs
+- AWS Secrets Manager for tokens
+- CloudWatch log groups
+- IAM roles with least-privilege policies
+- EventBridge schedulers for background jobs
+
+**Cost**: ~$150-200/month (see [PHASE6_RESULTS.md](PHASE6_RESULTS.md) for breakdown)
 
 ## 📊 Metrics & Monitoring
 
@@ -269,9 +294,9 @@ See [Operational Runbook Scenarios](PROJECT_SUMMARY.md#operational-runbook-scena
 - [x] **Phase 1**: Core FastAPI + DynamoDB + Allocation Logic
 - [x] **Phase 2**: Admin Endpoints + Structured JSON Logging
 - [x] **Phase 3**: Observability & Background Jobs (Prometheus, Health Checks, Automated Jobs)
-- [ ] **Phase 4**: Enhanced Security (Secrets Manager, Rate Limiting, Input Validation)
-- [ ] **Phase 5**: ENG CSP Production Integration (Replace Mocks with Real API)
-- [ ] **Phase 6**: AWS Infrastructure (Terraform, ECS Fargate, ALB)
+- [x] **Phase 4**: Enhanced Security (Rate Limiting, Security Headers, Circuit Breaker, CORS)
+- [x] **Phase 5**: ENG CSP Production Integration (Real API calls, Authentication, Error Handling)
+- [x] **Phase 6**: AWS Infrastructure (Terraform, ECS Fargate, ALB, Secrets Manager, IAM, CloudWatch)
 - [ ] **Phase 7**: Testing (Unit, Integration, Load Tests @1000 RPS)
 - [ ] **Phase 8**: Deployment & CI/CD (GitHub Actions, ECR, ECS Deploy)
 - [ ] **Phase 9**: GameDay Testing & Chaos Engineering

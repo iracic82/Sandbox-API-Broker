@@ -6,7 +6,7 @@ from app.core.metrics import get_metrics, update_pool_gauges
 from app.db.dynamodb import db_client
 import time
 
-router = APIRouter()
+router = APIRouter(tags=["Observability"])
 
 
 @router.get("/metrics")

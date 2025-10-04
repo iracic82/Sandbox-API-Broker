@@ -22,7 +22,9 @@ from app.services.allocation import (
 )
 
 
-router = APIRouter()
+router = APIRouter(
+    tags=["Sandboxes"],
+)
 
 
 @router.post(

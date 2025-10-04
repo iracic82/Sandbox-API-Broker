@@ -1,0 +1,39 @@
+# Example Terraform Variables
+# Copy this file to terraform.tfvars and fill in your values
+
+aws_region  = "us-east-1"
+environment = "prod"
+app_name    = "sandbox-broker"
+
+# VPC Configuration
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["us-east-1a", "us-east-1b"]
+
+# ECS Configuration
+ecs_task_cpu       = 1024
+ecs_task_memory    = 2048
+ecs_desired_count  = 2
+ecs_autoscaling_min = 2
+ecs_autoscaling_max = 10
+
+# Container Configuration
+container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/sandbox-broker-api:latest"
+container_port  = 8080
+
+# Application Configuration (sensitive - use environment variables or AWS Secrets Manager)
+broker_api_token   = "your-secure-api-token-here"
+broker_admin_token = "your-secure-admin-token-here"
+csp_api_token      = "your-infoblox-csp-token-here"
+csp_base_url       = "https://csp.infoblox.com/v2"
+
+# HTTPS Configuration (optional)
+enable_https    = false
+certificate_arn = "" # ACM certificate ARN if HTTPS enabled
+
+# Monitoring
+log_retention_days = 30
+
+# Background Jobs Schedule
+sync_schedule        = "rate(10 minutes)"
+cleanup_schedule     = "rate(5 minutes)"
+auto_expiry_schedule = "rate(5 minutes)"

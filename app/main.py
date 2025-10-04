@@ -16,14 +16,64 @@ from app.jobs import start_background_jobs, stop_background_jobs
 from app import __version__
 
 
-# Create FastAPI app
+# Create FastAPI app with enhanced OpenAPI documentation
 app = FastAPI(
     title="Sandbox Broker API",
-    description="High-concurrency sandbox allocation service for Instruqt tracks",
+    description="""
+## High-Concurrency Sandbox Allocation Service
+
+Production-grade API for allocating pre-created CSP sandboxes to Instruqt tracks with zero double-allocations.
+
+### Key Features
+
+* **Atomic Allocation**: K-candidate strategy with conditional writes
+* **Idempotency**: Safe retries via X-Track-ID header
+* **Auto-Expiry**: Automatic cleanup after 4.5 hours
+* **Circuit Breaker**: Protection against CSP API failures
+* **Observability**: Prometheus metrics, structured logging
+* **Security**: Rate limiting, OWASP headers, authentication
+
+### Workflow
+
+1. **Allocate**: Track requests sandbox via POST /v1/allocate
+2. **Use**: Student uses sandbox for lab (up to 4 hours)
+3. **Mark for Deletion**: Track calls POST /v1/sandboxes/{id}/mark-for-deletion when student stops
+4. **Cleanup**: Background job deletes from CSP within ~5 minutes
+5. **Safety Net**: Auto-expiry after 4.5h if track crashes
+
+### Authentication
+
+All endpoints require Bearer token authentication:
+- **Track Endpoints**: Use `BROKER_API_TOKEN`
+- **Admin Endpoints**: Use `BROKER_ADMIN_TOKEN`
+
+Example: `Authorization: Bearer your_token_here`
+    """,
     version=__version__,
     docs_url=f"{settings.api_base_path}/docs",
     redoc_url=f"{settings.api_base_path}/redoc",
     openapi_url=f"{settings.api_base_path}/openapi.json",
+    contact={
+        "name": "Sandbox Broker API",
+        "url": "https://github.com/iracic82/Sandbox-API-Broker",
+    },
+    license_info={
+        "name": "MIT",
+    },
+    openapi_tags=[
+        {
+            "name": "Sandboxes",
+            "description": "Track endpoints for allocating and managing sandboxes",
+        },
+        {
+            "name": "Admin",
+            "description": "Admin endpoints for pool management and operations",
+        },
+        {
+            "name": "Observability",
+            "description": "Health checks and metrics",
+        },
+    ],
 )
 
 # Add middleware (order matters: first added = outermost layer)

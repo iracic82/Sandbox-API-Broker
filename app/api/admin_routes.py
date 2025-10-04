@@ -8,7 +8,10 @@ from app.services.admin import admin_service
 from app.models.sandbox import SandboxStatus
 
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(
+    prefix="/admin",
+    tags=["Admin"],
+)
 
 
 @router.get(
