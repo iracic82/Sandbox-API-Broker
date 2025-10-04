@@ -167,7 +167,7 @@ class AdminService:
 
             for sandbox in pending_sandboxes:
                 try:
-                    # Delete from ENG CSP
+                    # Delete from ENG CSP (uses external_id to extract UUID)
                     success = await eng_csp_service.delete_sandbox(sandbox.external_id)
 
                     if success:

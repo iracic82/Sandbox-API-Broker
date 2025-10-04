@@ -94,7 +94,7 @@ class EngCspService:
         Delete sandbox from ENG CSP tenant.
 
         Args:
-            external_id: ENG CSP sandbox external ID (e.g., "identity/accounts/...")
+            external_id: ENG CSP external ID (e.g., "identity/accounts/27578a8f-...")
 
         Returns:
             True if successful, False otherwise
@@ -111,10 +111,12 @@ class EngCspService:
                 return True
 
             # Real API call
-            # The external_id is the full identity path like "identity/accounts/..."
-            # We need to make DELETE request to that path
+            # Extract UUID from external_id: "identity/accounts/{uuid}"
+            uuid = external_id.split("/")[-1]
+            delete_url = f"{self.base_url}/sandbox/accounts/{uuid}"
+            print(f"[ENG CSP] DELETE URL: {delete_url}")
+
             async with httpx.AsyncClient() as client:
-                delete_url = f"{self.base_url.rstrip('/')}/{external_id.lstrip('/')}"
                 response = await client.delete(
                     delete_url,
                     headers={"Authorization": f"Token {self.token}"},
