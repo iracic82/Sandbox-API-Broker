@@ -293,9 +293,11 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for step-by-step deployment instr
 
 ## 📚 Documentation
 
+- **API Documentation (Swagger UI)**: https://api-sandbox-broker.highvelocitynetworking.com/v1/docs
+- **OpenAPI Spec**: https://api-sandbox-broker.highvelocitynetworking.com/v1/openapi.json
 - [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - Full implementation plan & design
+- [PHASE7_RESULTS.md](PHASE7_RESULTS.md) - Testing results & load test verification
 - [Sandbox_Broker_API_Requirements.pdf](/Users/iracic/Downloads/Sandbox_Broker_API_Requirements.pdf) - Original requirements
-- API Docs: `/docs` (Swagger UI when running)
 
 ## 🛠️ Configuration
 
@@ -310,6 +312,8 @@ CSP_BASE_URL=https://eng.csp.example.com
 CSP_API_TOKEN=<csp_token>
 LAB_DURATION_HOURS=4
 K_CANDIDATES=15
+CLEANUP_BATCH_SIZE=10           # Throttling: sandboxes per batch
+CLEANUP_BATCH_DELAY_SEC=2.0     # Throttling: delay between batches
 ```
 
 ## 🐛 Troubleshooting
