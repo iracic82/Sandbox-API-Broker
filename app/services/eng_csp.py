@@ -87,7 +87,7 @@ class EngCspService:
                 return sandboxes
 
         # Call with circuit breaker protection
-        return await eng_csp_circuit_breaker.call(_fetch)
+        return await eng_csp_circuit_breaker.call_async(_fetch)
 
     async def delete_sandbox(self, external_id: str) -> bool:
         """
@@ -132,7 +132,7 @@ class EngCspService:
                 return success
 
         # Call with circuit breaker protection
-        return await eng_csp_circuit_breaker.call(_delete)
+        return await eng_csp_circuit_breaker.call_async(_delete)
 
     async def create_sandbox(self, name: str) -> Dict[str, Any]:
         """

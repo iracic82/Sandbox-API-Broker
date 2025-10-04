@@ -33,8 +33,8 @@ class Settings(BaseSettings):
     # ENG CSP Integration
     csp_base_url: str = "https://csp.infoblox.com/v2"
     csp_api_token: str = ""
-    csp_timeout_connect_sec: int = 2
-    csp_timeout_read_sec: int = 5
+    csp_timeout_connect_sec: int = 5
+    csp_timeout_read_sec: int = 15  # DELETE operations can take 5-10 seconds
 
     # Concurrency & Resilience
     k_candidates: int = 15

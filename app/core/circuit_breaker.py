@@ -52,7 +52,7 @@ class CircuitBreaker:
 
     def call(self, func: Callable, *args, **kwargs) -> Any:
         """
-        Call function with circuit breaker protection.
+        Call function with circuit breaker protection (sync version).
 
         Args:
             func: Function to call
@@ -81,6 +81,47 @@ class CircuitBreaker:
         # Try to call the function
         try:
             result = func(*args, **kwargs)
+
+            # Success! Record it
+            self._on_success()
+            return result
+
+        except Exception as e:
+            # Failure! Record it
+            self._on_failure()
+            raise
+
+    async def call_async(self, func: Callable, *args, **kwargs) -> Any:
+        """
+        Call async function with circuit breaker protection.
+
+        Args:
+            func: Async function to call
+            *args: Positional arguments
+            **kwargs: Keyword arguments
+
+        Returns:
+            Function result
+
+        Raises:
+            CircuitBreakerError: If circuit is open
+        """
+        # Check if circuit should transition from OPEN to HALF_OPEN
+        if self.state == CircuitState.OPEN:
+            if self._should_attempt_reset():
+                print(f"[CircuitBreaker:{self.name}] Attempting reset (HALF_OPEN)")
+                self.state = CircuitState.HALF_OPEN
+                self.success_count = 0
+            else:
+                # Circuit is open, reject request
+                raise CircuitBreakerError(
+                    f"Circuit breaker '{self.name}' is OPEN. "
+                    f"Service unavailable. Retry after {self._get_retry_after()}s"
+                )
+
+        # Try to call the async function
+        try:
+            result = await func(*args, **kwargs)
 
             # Success! Record it
             self._on_success()
