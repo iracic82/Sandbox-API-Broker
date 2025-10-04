@@ -28,7 +28,7 @@ echo "Testing: GET https://csp.infoblox.com/v2/current_user/accounts"
 echo ""
 
 response=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
-    -H "Authorization: Bearer $CSP_API_TOKEN" \
+    -H "Authorization: Token $CSP_API_TOKEN" \
     "https://csp.infoblox.com/v2/current_user/accounts")
 
 http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)

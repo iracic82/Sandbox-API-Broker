@@ -23,6 +23,8 @@ services:
       - AWS_SECRET_ACCESS_KEY=local
       - BROKER_API_TOKEN=dev_token_local
       - BROKER_ADMIN_TOKEN=admin_token_local
+      - CSP_API_TOKEN=${CSP_API_TOKEN:-your_csp_token_here}
+      - CSP_BASE_URL=https://csp.infoblox.com/v2
       - LOG_LEVEL=DEBUG
     depends_on:
       - dynamodb-local

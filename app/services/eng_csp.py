@@ -49,7 +49,7 @@ class EngCspService:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{self.base_url}/current_user/accounts",
-                    headers={"Authorization": f"Bearer {self.token}"},
+                    headers={"Authorization": f"Token {self.token}"},
                     timeout=self.timeout
                 )
                 response.raise_for_status()
@@ -117,7 +117,7 @@ class EngCspService:
                 delete_url = f"{self.base_url.rstrip('/')}/{external_id.lstrip('/')}"
                 response = await client.delete(
                     delete_url,
-                    headers={"Authorization": f"Bearer {self.token}"},
+                    headers={"Authorization": f"Token {self.token}"},
                     timeout=self.timeout
                 )
 
