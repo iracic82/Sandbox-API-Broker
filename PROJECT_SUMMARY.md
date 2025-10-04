@@ -172,24 +172,28 @@ FOR EACH sandbox:
 
 ## Implementation Phases
 
-### Phase 1: Core FastAPI + Local Development
-- [ ] Set up FastAPI project structure
-- [ ] Implement core data models (Pydantic schemas for allocation/deletion)
-- [ ] Create DynamoDB client wrapper
-- [ ] Implement atomic allocation logic with conditional writes (status='available')
-- [ ] Add idempotency support (X-Track-ID)
-- [ ] Local development with DynamoDB Local
-- [ ] Unit tests for core logic
+### ✅ Phase 1: Core FastAPI + Local Development (COMPLETE)
+- [x] Set up FastAPI project structure
+- [x] Implement core data models (Pydantic schemas for allocation/deletion)
+- [x] Create DynamoDB client wrapper
+- [x] Implement atomic allocation logic with conditional writes (status='available')
+- [x] Add idempotency support (X-Track-ID)
+- [x] Local development with DynamoDB Local
+- [x] Unit tests for core logic
+- [x] Implement POST /v1/allocate with K-candidate strategy
+- [x] Implement POST /v1/sandboxes/{id}/mark-for-deletion endpoint
+- [x] Implement GET /v1/sandboxes/{id} endpoint
+- [x] Implement GET /healthz and /readyz endpoints
+- [x] Add authentication via Bearer tokens
+- [x] Error handling (401, 403, 404, 409, 5xx)
+- [x] Tested and verified (see PHASE1_RESULTS.md)
 
-### Phase 2: API Endpoints & Business Logic
-- [ ] Implement GET /sandboxes endpoint with pagination (filter by status)
-- [ ] Implement POST /allocate with K-candidate strategy
-- [ ] Implement POST /mark-for-deletion/{sandbox_id} endpoint
-- [ ] Implement POST /sync endpoint
-- [ ] Implement POST /cleanup endpoint (process pending deletions)
-- [ ] Implement GET /healthz endpoint
+### Phase 2: Admin Endpoints & Background Jobs
+- [ ] Implement GET /v1/admin/sandboxes endpoint with pagination (filter by status)
+- [ ] Implement POST /v1/admin/sync endpoint (trigger ENG sync)
+- [ ] Implement POST /v1/admin/cleanup endpoint (process pending deletions)
 - [ ] Add structured JSON logging (request_id, track_id, sandbox_id, etc.)
-- [ ] Error handling (401, 403, 404, 409, 429, 5xx)
+- [ ] Admin token authentication
 
 ### Phase 3: Observability & Metrics
 - [ ] Implement Prometheus metrics endpoint (GET /metrics)
