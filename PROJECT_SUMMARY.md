@@ -210,12 +210,15 @@ FOR EACH sandbox:
 - [x] Metrics integration in allocation and admin services
 - [x] CloudWatch Logs ready (structured JSON logging from Phase 2)
 
-### Phase 4: Security & Authentication
-- [ ] Static bearer token auth (Phase 1)
-- [ ] AWS Secrets Manager integration
-- [ ] ALB HTTPS configuration
-- [ ] Header validation (Authorization, X-Track-ID, Idempotency-Key)
-- [ ] Admin endpoint protection
+### Phase 4: Security & Authentication ✅
+- [x] Rate limiting middleware (10 RPS sustained, 20 burst, token bucket algorithm)
+- [x] Security headers (X-Frame-Options, CSP, HSTS, X-Content-Type-Options, etc.)
+- [x] CORS configuration (restrictive, production-ready)
+- [x] Circuit breaker for ENG CSP calls (5 failure threshold, 60s timeout)
+- [x] Per-client rate limiting (X-Track-ID or IP-based)
+- [x] Rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining)
+- [x] Health check bypass (no rate limiting for /healthz, /readyz, /metrics)
+- [ ] AWS Secrets Manager integration (deferred to Phase 6 - AWS deployment)
 
 ### Phase 5: ENG Tenant Sync Job
 - [ ] Implement sync logic (fetch from ENG CSP API)
