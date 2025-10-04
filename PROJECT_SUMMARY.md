@@ -220,14 +220,16 @@ FOR EACH sandbox:
 - [x] Health check bypass (no rate limiting for /healthz, /readyz, /metrics)
 - [ ] AWS Secrets Manager integration (deferred to Phase 6 - AWS deployment)
 
-### Phase 5: ENG Tenant Sync Job
-- [ ] Implement sync logic (fetch from ENG CSP API)
-- [ ] Upsert active sandboxes to DynamoDB (status='available')
-- [ ] Mark missing sandboxes as 'stale'
-- [ ] Preserve allocated/pending_deletion sandboxes during sync
-- [ ] Circuit breaker for sync failures
-- [ ] Exponential backoff with jitter
-- [ ] EventBridge Scheduler setup (10-minute interval)
+### Phase 5: ENG CSP Production Integration ✅
+- [x] Real API implementation for fetch_sandboxes (GET /v2/current_user/accounts)
+- [x] Real API implementation for delete_sandbox (DELETE /v2/{external_id})
+- [x] Mock/production mode auto-detection (based on CSP_API_TOKEN)
+- [x] ISO 8601 timestamp parsing for created_at
+- [x] Circuit breaker integration for all API calls
+- [x] Comprehensive error handling and logging
+- [x] Field mapping (csp_id → sandbox_id, id → external_id)
+- [x] Filtering for sandbox accounts with state=active
+- [x] Documentation (ENG_CSP_INTEGRATION.md with full guide)
 
 ### Phase 6: Cleanup & Deletion Management
 - [ ] Implement mark-for-deletion endpoint (immediate flagging)
