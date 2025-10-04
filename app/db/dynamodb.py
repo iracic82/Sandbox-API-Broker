@@ -46,13 +46,12 @@ class DynamoDBClient:
             "status": sandbox.status.value,
             "lab_duration_hours": sandbox.lab_duration_hours,
             "deletion_retry_count": sandbox.deletion_retry_count,
+            "allocated_at": sandbox.allocated_at or 0,  # GSI sort key - default to 0 for available
         }
 
         # Optional fields
         if sandbox.allocated_to_track:
             item["allocated_to_track"] = sandbox.allocated_to_track
-        if sandbox.allocated_at:
-            item["allocated_at"] = sandbox.allocated_at
         if sandbox.deletion_requested_at:
             item["deletion_requested_at"] = sandbox.deletion_requested_at
         if sandbox.last_synced:
@@ -99,7 +98,8 @@ class DynamoDBClient:
         try:
             response = self.table.query(
                 IndexName=settings.ddb_gsi1_name,
-                KeyConditionExpression="status = :status",
+                KeyConditionExpression="#status = :status",
+                ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={":status": SandboxStatus.AVAILABLE.value},
                 Limit=k,
             )
@@ -200,7 +200,7 @@ class DynamoDBClient:
                     attribute_exists(PK) AND
                     #status = :allocated AND
                     allocated_to_track = :track_id AND
-                    allocated_at < :max_expiry
+                    allocated_at > :max_expiry
                 """,
                 ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={
