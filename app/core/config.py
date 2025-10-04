@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     grace_period_minutes: int = 30
     sync_interval_sec: int = 600
     cleanup_interval_sec: int = 300
+    cleanup_batch_size: int = 10  # Process N sandboxes per batch
+    cleanup_batch_delay_sec: float = 2.0  # Delay between batches (throttling)
     auto_expiry_interval_sec: int = 300
 
     # ENG CSP Integration

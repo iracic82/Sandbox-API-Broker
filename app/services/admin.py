@@ -165,36 +165,48 @@ class AdminService:
             deleted_count = 0
             failed_count = 0
 
-            for sandbox in pending_sandboxes:
-                try:
-                    # Delete from ENG CSP (uses external_id to extract UUID)
-                    success = await eng_csp_service.delete_sandbox(sandbox.external_id)
+            # Process in batches with throttling to avoid overwhelming ENG CSP API
+            batch_size = settings.cleanup_batch_size
+            batch_delay = settings.cleanup_batch_delay_sec
 
-                    if success:
-                        # Remove from DynamoDB
-                        self.db.table.delete_item(
-                            Key={"PK": f"SBX#{sandbox.sandbox_id}", "SK": "META"}
-                        )
-                        deleted_count += 1
-                        cleanup_deleted.inc()
-                    else:
-                        # Mark as failed
+            for i in range(0, len(pending_sandboxes), batch_size):
+                batch = pending_sandboxes[i:i + batch_size]
+
+                for sandbox in batch:
+                    try:
+                        # Delete from ENG CSP (uses external_id to extract UUID)
+                        success = await eng_csp_service.delete_sandbox(sandbox.external_id)
+
+                        if success:
+                            # Remove from DynamoDB
+                            self.db.table.delete_item(
+                                Key={"PK": f"SBX#{sandbox.sandbox_id}", "SK": "META"}
+                            )
+                            deleted_count += 1
+                            cleanup_deleted.inc()
+                        else:
+                            # Mark as failed
+                            sandbox.status = SandboxStatus.DELETION_FAILED
+                            sandbox.deletion_retry_count += 1
+                            sandbox.updated_at = int(time.time())
+                            await self.db.put_sandbox(sandbox)
+                            failed_count += 1
+                            cleanup_failed.inc()
+
+                    except Exception as e:
+                        # Handle deletion failure
                         sandbox.status = SandboxStatus.DELETION_FAILED
                         sandbox.deletion_retry_count += 1
                         sandbox.updated_at = int(time.time())
                         await self.db.put_sandbox(sandbox)
                         failed_count += 1
                         cleanup_failed.inc()
+                        print(f"Failed to delete {sandbox.sandbox_id}: {e}")
 
-                except Exception as e:
-                    # Handle deletion failure
-                    sandbox.status = SandboxStatus.DELETION_FAILED
-                    sandbox.deletion_retry_count += 1
-                    sandbox.updated_at = int(time.time())
-                    await self.db.put_sandbox(sandbox)
-                    failed_count += 1
-                    cleanup_failed.inc()
-                    print(f"Failed to delete {sandbox.sandbox_id}: {e}")
+                # Throttling: delay between batches (unless this is the last batch)
+                if i + batch_size < len(pending_sandboxes):
+                    import asyncio
+                    await asyncio.sleep(batch_delay)
 
             duration_sec = time.time() - start_time
             duration_ms = int(duration_sec * 1000)
