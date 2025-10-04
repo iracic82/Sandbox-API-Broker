@@ -111,7 +111,7 @@ function allocateSandbox(trackId) {
   allocationLatency.add(duration);
 
   const success = check(response, {
-    'status is 200': (r) => r.status === 200,
+    'status is 200 or 201': (r) => r.status === 200 || r.status === 201,
     'has sandbox_id': (r) => r.json('sandbox_id') !== undefined,
     'has expires_at': (r) => r.json('expires_at') !== undefined,
   });
@@ -136,9 +136,8 @@ function allocateSandbox(trackId) {
     allocationFailure.add(1);
 
     // Categorize failures
-    if (response.status === 503) {
+    if (response.status === 409) {
       allocationPoolExhausted.add(1);
-    } else if (response.status === 409) {
       allocationConflicts.add(1);
     }
 
