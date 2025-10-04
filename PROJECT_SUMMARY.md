@@ -198,12 +198,17 @@ FOR EACH sandbox:
 - [x] ENG CSP service integration (mock implementation)
 - [x] Middleware for automatic request/response logging
 
-### Phase 3: Observability & Metrics
-- [ ] Implement Prometheus metrics endpoint (GET /metrics)
-- [ ] Add counters: broker_allocate_total, broker_deletion_marked_total, broker_sync_total, broker_cleanup_total
-- [ ] Add gauges: broker_pool_available, broker_pool_allocated, broker_pool_pending_deletion, broker_conflict_total, broker_idempotent_hits
-- [ ] CloudWatch Logs integration
-- [ ] Request/response logging with latency tracking
+### Phase 3: Observability & Metrics ✅
+- [x] Implement Prometheus metrics endpoint (GET /metrics)
+- [x] Add counters: allocate_total, deletion_marked_total, sync_total, cleanup_total, expiry_total
+- [x] Add gauges: pool_available, pool_allocated, pool_pending_deletion, pool_stale, pool_deletion_failed, pool_total
+- [x] Add histograms: request_latency, allocation_latency, sync_duration, cleanup_duration
+- [x] Health check endpoints (/healthz for liveness, /readyz for readiness)
+- [x] Background sync job (every 600s, configurable)
+- [x] Background cleanup job (every 300s, configurable)
+- [x] Background auto-expiry job (every 300s, marks orphaned allocations >4.5h)
+- [x] Metrics integration in allocation and admin services
+- [x] CloudWatch Logs ready (structured JSON logging from Phase 2)
 
 ### Phase 4: Security & Authentication
 - [ ] Static bearer token auth (Phase 1)

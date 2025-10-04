@@ -71,10 +71,11 @@ See [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) for detailed implementation plan an
 **Completed Phases**:
 - ✅ **Phase 1**: Core FastAPI + DynamoDB (allocation, deletion, idempotency)
 - ✅ **Phase 2**: Admin Endpoints + Structured Logging (list, sync, cleanup, stats)
+- ✅ **Phase 3**: Observability & Background Jobs (Prometheus metrics, health checks, automated jobs)
 
-**Current Phase**: Phase 3 - Background Jobs & Observability
+**Current Phase**: Phase 4 - Enhanced Security & AWS Integration
 
-**Next Phase**: Phase 4 - Enhanced Security & Rate Limiting
+**Next Phase**: Phase 5 - AWS Infrastructure (Terraform, ECS, Secrets Manager)
 
 ## 🔑 Key Features
 
@@ -145,14 +146,20 @@ Headers:
 
 ### Observability
 ```bash
-# Health check
+# Health check (liveness probe)
 GET /healthz
+# Returns: {"status": "healthy", "timestamp": 1759574955}
 
-# Readiness check
+# Readiness check (DynamoDB connectivity)
 GET /readyz
+# Returns: {"status": "ready", "checks": {"dynamodb": "ok"}}
 
 # Prometheus metrics
 GET /metrics
+# Returns: Prometheus exposition format with 20+ metrics
+# - Counters: allocate_total, sync_total, cleanup_total, expiry_total
+# - Gauges: pool_available, pool_allocated, pool_total
+# - Histograms: request_latency, allocation_latency
 ```
 
 ## 🗄️ Database Schema
@@ -259,12 +266,12 @@ See [Operational Runbook Scenarios](PROJECT_SUMMARY.md#operational-runbook-scena
 - [x] Requirements & Design
 - [x] **Phase 1**: Core FastAPI + DynamoDB + Allocation Logic
 - [x] **Phase 2**: Admin Endpoints + Structured JSON Logging
-- [ ] **Phase 3**: Background Jobs (EventBridge Scheduler)
-- [ ] **Phase 4**: Enhanced Security (Secrets Manager, Rate Limiting)
-- [ ] **Phase 5**: Observability (Prometheus Metrics, Dashboards)
-- [ ] **Phase 6**: AWS Infrastructure (Terraform, ECS Fargate)
-- [ ] **Phase 7**: Testing (Unit, Integration, Load Tests)
-- [ ] **Phase 8**: Deployment & CI/CD
+- [x] **Phase 3**: Observability & Background Jobs (Prometheus, Health Checks, Automated Jobs)
+- [ ] **Phase 4**: Enhanced Security (Secrets Manager, Rate Limiting, Input Validation)
+- [ ] **Phase 5**: ENG CSP Production Integration (Replace Mocks with Real API)
+- [ ] **Phase 6**: AWS Infrastructure (Terraform, ECS Fargate, ALB)
+- [ ] **Phase 7**: Testing (Unit, Integration, Load Tests @1000 RPS)
+- [ ] **Phase 8**: Deployment & CI/CD (GitHub Actions, ECR, ECS Deploy)
 - [ ] **Phase 9**: GameDay Testing & Chaos Engineering
 - [ ] **Phase 10**: Production Hardening & Documentation
 
