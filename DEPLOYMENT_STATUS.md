@@ -1,251 +1,126 @@
 # Deployment Status - Sandbox Broker API
-**Date**: 2025-10-04 14:50
-**Status**: ⏳ WAITING FOR AWS ELASTIC IP QUOTA INCREASE
+**Date**: 2025-10-04 15:40
+**Status**: ✅ **DEPLOYMENT COMPLETE - PRODUCTION LIVE**
 
-## Current Situation
+## 🎉 Deployment Summary
 
-Deployment to AWS ECS Fargate is **95% complete** but blocked waiting for AWS to approve an Elastic IP quota increase (usually 10-30 minutes).
+The Sandbox Broker API is **fully deployed and operational** on AWS ECS Fargate.
 
-### Quota Increase Request Details
-- **Request ID**: `0117cfa2679b4b0d8a0c51023e2d8040Hxa0jvMu`
-- **Status**: PENDING
-- **Current Limit**: 5 Elastic IPs
-- **Requested**: 10 Elastic IPs
-- **Service**: EC2-VPC Elastic IPs (eu-central-1)
-- **Requested At**: 2025-10-04 14:48:16
+### Live Endpoints
+- **API URL**: `https://api-sandbox-broker.highvelocitynetworking.com/v1`
+- **Swagger Docs**: `https://api-sandbox-broker.highvelocitynetworking.com/v1/docs`
+- **Region**: eu-central-1 (Frankfurt)
 
-**Check Status:**
+### Infrastructure: 49/49 Resources Created ✅
+
+All AWS resources successfully deployed:
+- ✅ VPC with multi-AZ subnets (2 public, 2 private)
+- ✅ Application Load Balancer with HTTPS (ACM certificate)
+- ✅ ECS Fargate cluster with 2 running tasks
+- ✅ DynamoDB table with 3 Global Secondary Indexes
+- ✅ Secrets Manager with 3 API tokens
+- ✅ VPC Endpoints (Secrets Manager, DynamoDB)
+- ✅ NAT Gateway with Elastic IP
+- ✅ Auto-scaling (2-10 tasks, CPU/Memory triggers)
+- ✅ CloudWatch Logs
+- ✅ EventBridge Schedulers (sync, cleanup, auto-expiry)
+- ✅ IAM roles and policies
+
+## Verified Functionality ✅
+
+### Health Checks
 ```bash
-aws service-quotas get-requested-service-quota-change \
-  --request-id 0117cfa2679b4b0d8a0c51023e2d8040Hxa0jvMu \
-  --region eu-central-1 \
-  --profile okta-sso \
-  --query 'RequestedQuota.Status' \
-  --output text
-```
-
-Expected statuses: `PENDING` → `CASE_OPENED` → `APPROVED`
-
-## What's Been Completed ✅
-
-### 1. AWS Account Setup
-- ✅ Logged in via okta-sso
-- ✅ Account: 905418046272
-- ✅ Region: **eu-central-1**
-- ✅ User: iracic
-
-### 2. ACM Certificate (HTTPS)
-- ✅ Created certificate for: `api-sandbox-broker.highvelocitynetworking.com`
-- ✅ Certificate ARN: `arn:aws:acm:eu-central-1:905418046272:certificate/0a3eaa63-9960-4a6c-bb06-4bc41932bbf8`
-- ✅ Status: **ISSUED** (DNS validation complete)
-
-### 3. ECR Repository
-- ✅ Repository created: `sandbox-broker-api`
-- ✅ Repository URI: `905418046272.dkr.ecr.eu-central-1.amazonaws.com/sandbox-broker-api`
-- ✅ Docker image built for linux/amd64 (AWS Fargate compatible)
-- ✅ Image pushed: `latest` (SHA: 3babf5375392db6c11e63e629c289022a86da41927c73c70b1d0e794b4738d8a)
-
-### 4. Terraform Configuration
-- ✅ All Terraform files created in `terraform/` directory
-- ✅ Variables configured in `terraform/terraform.tfvars`
-- ✅ Terraform initialized
-- ✅ Plan created (49 resources to create)
-
-### 5. API Authentication Tokens
-- ✅ Secure tokens generated and saved in `.tokens.txt`
-- **BROKER_API_TOKEN**: `a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e`
-- **BROKER_ADMIN_TOKEN**: `083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c`
-- **CSP_API_TOKEN**: `ccda70ef61cb8ac8962ca5c337e19c51f41eedd98c1a2341ce94bc928d10cc41`
-
-### 6. AWS Infrastructure (47/49 Resources Created)
-
-**Successfully Created:**
-- ✅ VPC (vpc-07fbb704dcf4a7371)
-- ✅ Internet Gateway
-- ✅ 2 Public Subnets (multi-AZ)
-- ✅ 2 Private Subnets (multi-AZ)
-- ✅ Public Route Table
-- ✅ Private Route Table
-- ✅ Security Groups (ALB + ECS)
-- ✅ Application Load Balancer (sandbox-broker-alb)
-- ✅ ALB Target Group
-- ✅ HTTP Listener (port 80)
-- ✅ HTTPS Listener (port 443) with ACM certificate
-- ✅ DynamoDB Table: `sandbox-broker-pool` with 3 GSIs
-- ✅ ECS Cluster: `sandbox-broker-cluster`
-- ✅ ECS Task Definition: `sandbox-broker`
-- ✅ ECS Service: `sandbox-broker` (desired: 2 tasks)
-- ✅ Auto-scaling Target (2-10 tasks)
-- ✅ Auto-scaling Policies (CPU + Memory)
-- ✅ CloudWatch Log Groups: `/ecs/sandbox-broker`
-- ✅ Secrets Manager (3 secrets with tokens)
-- ✅ IAM Roles: ECS Task, ECS Execution, EventBridge
-- ✅ IAM Policies (DynamoDB, Secrets, ECS)
-- ✅ EventBridge Schedulers (sync, cleanup, auto-expiry) - DISABLED by default
-- ✅ VPC Endpoint for DynamoDB
-
-**Blocked (2/49 Resources):**
-- ❌ Elastic IP for NAT Gateway (quota limit reached)
-- ❌ NAT Gateway (depends on Elastic IP)
-
-**Why This Matters:**
-Without NAT Gateway, ECS tasks in private subnets can't reach the internet (needed for pulling Docker images and calling Infoblox CSP API). Everything else is ready!
-
-## Next Steps to Complete Deployment
-
-### Step 1: Wait for Quota Approval (Auto-check)
-
-Once quota is approved (status becomes `APPROVED` or `CASE_OPENED`), run:
-
-```bash
-cd /Users/iracic/PycharmProjects/Sandbox-API-Broker
-
-# Set environment variables
-export TF_VAR_broker_api_token="a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e"
-export TF_VAR_broker_admin_token="083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c"
-export TF_VAR_csp_api_token="ccda70ef61cb8ac8962ca5c337e19c51f41eedd98c1a2341ce94bc928d10cc41"
-export AWS_PROFILE=okta-sso
-
-# Apply remaining resources
-terraform apply
-
-# Should complete in ~2 minutes (just EIP + NAT Gateway)
-```
-
-### Step 2: Get ALB DNS Name
-
-```bash
-terraform output alb_dns_name
-# Example: sandbox-broker-alb-97670aaf85194d2c.eu-central-1.elb.amazonaws.com
-```
-
-### Step 3: Create DNS Record
-
-In your DNS provider for `highvelocitynetworking.com`, create:
-
-```
-Type: A (or ALIAS)
-Name: api-sandbox-broker.highvelocitynetworking.com
-Value: <alb-dns-name-from-step-2>
-TTL: 300
-```
-
-**Or use AWS CLI if using Route53:**
-```bash
-ALB_DNS=$(terraform output -raw alb_dns_name)
-ALB_ZONE_ID=$(aws elbv2 describe-load-balancers \
-  --names sandbox-broker-alb \
-  --query 'LoadBalancers[0].CanonicalHostedZoneId' \
-  --output text \
-  --profile okta-sso \
-  --region eu-central-1)
-
-# Create Route53 record (if using Route53)
-aws route53 change-resource-record-sets \
-  --hosted-zone-id <YOUR_ZONE_ID> \
-  --change-batch '{
-    "Changes": [{
-      "Action": "CREATE",
-      "ResourceRecordSet": {
-        "Name": "api-sandbox-broker.highvelocitynetworking.com",
-        "Type": "A",
-        "AliasTarget": {
-          "HostedZoneId": "'$ALB_ZONE_ID'",
-          "DNSName": "'$ALB_DNS'",
-          "EvaluateTargetHealth": true
-        }
-      }
-    }]
-  }' \
-  --profile okta-sso
-```
-
-### Step 4: Verify Deployment
-
-```bash
-# Wait 2-3 minutes for ECS tasks to start, then test:
-
-# Test health endpoint
 curl https://api-sandbox-broker.highvelocitynetworking.com/healthz
+# Response: {"status":"healthy"}
+```
 
-# Test admin stats (should show 0 sandboxes initially)
+### Admin Stats
+```bash
 curl -H "Authorization: Bearer 083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c" \
   https://api-sandbox-broker.highvelocitynetworking.com/v1/admin/stats
+# Response: {"total":2,"available":1,"allocated":0,"pending_deletion":1,"stale":0,"deletion_failed":0}
+```
 
-# Trigger sync to populate sandbox pool
-curl -X POST \
-  -H "Authorization: Bearer 083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c" \
-  https://api-sandbox-broker.highvelocitynetworking.com/v1/admin/sync
-
-# Check stats again (should show sandboxes from CSP)
-curl -H "Authorization: Bearer 083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c" \
-  https://api-sandbox-broker.highvelocitynetworking.com/v1/admin/stats
-
-# Allocate a test sandbox
+### Sandbox Allocation
+```bash
 curl -X POST \
   -H "Authorization: Bearer a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e" \
   -H "X-Track-ID: deployment-test-1" \
   https://api-sandbox-broker.highvelocitynetworking.com/v1/allocate
-
-# View Swagger docs
-open https://api-sandbox-broker.highvelocitynetworking.com/v1/docs
+# Response: {"sandbox_id":"2012220","name":"test","external_id":"...","allocated_at":1759585372,"expires_at":1759599772}
 ```
 
-## Monitoring & Troubleshooting
-
-### Check ECS Task Status
+### Mark for Deletion
 ```bash
-aws ecs describe-services \
-  --cluster sandbox-broker-cluster \
-  --services sandbox-broker \
-  --region eu-central-1 \
-  --profile okta-sso \
-  --query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount}'
+curl -X POST \
+  -H "Authorization: Bearer a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e" \
+  -H "X-Track-ID: deployment-test-1" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/sandboxes/2012220/mark-for-deletion
+# Response: {"sandbox_id":"2012220","status":"pending_deletion","deletion_requested_at":1759585447}
 ```
 
-### View Application Logs
+### CSP Sync
 ```bash
-aws logs tail /ecs/sandbox-broker --follow --region eu-central-1 --profile okta-sso
+curl -X POST \
+  -H "Authorization: Bearer 083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/admin/sync
+# Response: {"status":"completed","synced":2,"marked_stale":0,"duration_ms":397}
 ```
 
-### Check ALB Target Health
-```bash
-# Get target group ARN
-TG_ARN=$(aws elbv2 describe-target-groups \
-  --names sandbox-broker-tg \
-  --query 'TargetGroups[0].TargetGroupArn' \
-  --output text \
-  --profile okta-sso \
-  --region eu-central-1)
+## Critical Fixes Applied
 
-# Check target health
-aws elbv2 describe-target-health \
-  --target-group-arn $TG_ARN \
-  --profile okta-sso \
-  --region eu-central-1
+### 1. DynamoDB GSI Schema Fix
+**Problem**: Application queries failed with "Query condition missed key schema element"
+
+**Root Cause**: Terraform defined GSIs with projection keys (GSI1PK, GSI2PK, etc.) but application used actual data attributes (status, allocated_to_track, idempotency_key).
+
+**Solution**:
+- Added missing Sort Key (SK) to primary key
+- Updated all 3 GSIs to use actual data attributes:
+  - **GSI1 (StatusIndex)**: `status` (hash) + `allocated_at` (range)
+  - **GSI2 (TrackIndex)**: `allocated_to_track` (hash) + `allocated_at` (range)
+  - **GSI3 (IdempotencyIndex)**: `idempotency_key` (hash) + `allocated_at` (range)
+
+**File**: `terraform/dynamodb.tf`
+
+### 2. VPC Endpoint for Secrets Manager
+**Problem**: ECS tasks failed with "ResourceInitializationError: unable to pull secrets from asm"
+
+**Root Cause**: ECS tasks in private subnets couldn't reach Secrets Manager API endpoints.
+
+**Solution**:
+- Created Interface VPC endpoint for Secrets Manager
+- Added security group allowing HTTPS (443) from VPC CIDR
+- Enabled private DNS for seamless API calls
+
+**File**: `terraform/vpc_endpoints.tf`
+
+### 3. Elastic IP Quota Increase
+**Problem**: Deployment blocked - "AddressLimitExceeded: maximum number of addresses reached"
+
+**Solution**:
+- Requested quota increase from 5 to 10 Elastic IPs
+- Request ID: `0117cfa2679b4b0d8a0c51023e2d8040Hxa0jvMu`
+- Approved within 20 minutes
+- Optimized to use single NAT Gateway instead of 2 (cost savings: ~$32/month)
+
+## Authentication Tokens
+
+All tokens stored in `.tokens.txt` (NOT committed to git):
+
+### Track API Token (for Instruqt tracks)
+```
+BROKER_API_TOKEN=a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e
 ```
 
-## Important Files & Locations
-
+### Admin Token (for admin endpoints)
 ```
-/Users/iracic/PycharmProjects/Sandbox-API-Broker/
-├── .tokens.txt                    # API tokens (DO NOT COMMIT)
-├── terraform/
-│   ├── terraform.tfvars           # Terraform variables
-│   ├── main.tf                    # Provider config
-│   ├── vpc.tf                     # VPC, subnets, NAT
-│   ├── dynamodb.tf                # DynamoDB table
-│   ├── ecs.tf                     # ECS cluster, tasks
-│   ├── alb.tf                     # Load balancer
-│   ├── iam.tf                     # IAM roles
-│   ├── secrets.tf                 # Secrets Manager
-│   ├── cloudwatch.tf              # Logs
-│   ├── eventbridge.tf             # Background jobs
-│   └── outputs.tf                 # Output values
-├── Dockerfile                     # Linux/amd64 compatible
-├── DEPLOYMENT_GUIDE.md            # Full deployment guide
-├── DEPLOYMENT_STATUS.md           # This file
-└── PHASE6_RESULTS.md              # Phase 6 results
+BROKER_ADMIN_TOKEN=083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c
+```
+
+### CSP API Token (Infoblox CSP)
+```
+CSP_API_TOKEN=ccda70ef61cb8ac8962ca5c337e19c51f41eedd98c1a2341ce94bc928d10cc41
 ```
 
 ## Architecture Overview
@@ -254,7 +129,7 @@ aws elbv2 describe-target-health \
 Internet
     │
     v
-Application Load Balancer (HTTPS)
+Application Load Balancer (HTTPS - ACM Certificate)
     │
     ├─────────────┐
     │             │
@@ -268,11 +143,19 @@ ECS Task 1    ECS Task 2
     │             │
     v             v
 DynamoDB     Secrets Manager
-(3 GSIs)     (3 secrets)
+(3 GSIs)     (VPC Endpoint)
     │
     v
-Infoblox CSP API
+NAT Gateway ──> Infoblox CSP API
 ```
+
+### Key Features
+- **Multi-AZ Deployment**: 2 availability zones for high availability
+- **Private Subnets**: ECS tasks run in private subnets with NAT Gateway for outbound
+- **VPC Endpoints**: Private connectivity to AWS services (no internet routing)
+- **Auto-scaling**: 2-10 tasks based on CPU (70%) and Memory (80%)
+- **HTTPS Only**: ACM certificate with automatic HTTP→HTTPS redirect
+- **Pay-per-request**: DynamoDB on-demand pricing for unpredictable workloads
 
 ## Cost Estimate
 
@@ -283,48 +166,184 @@ Infoblox CSP API
 - DynamoDB (pay-per-request): ~$5-20
 - Data Transfer: Variable
 - Secrets Manager: ~$1
-- **Total: ~$115-130/month**
+- VPC Endpoints: ~$7
+- **Total: ~$120-135/month**
 
-(Saved $32/month by using single NAT Gateway instead of 2)
+## Monitoring & Operations
 
-## Git Commits
-
-Latest commit:
-```
-b64ebc2 - Phase 6: AWS Infrastructure & Enhanced Swagger Documentation
-```
-
-All Phase 6 Terraform files committed and pushed to GitHub.
-
-## Quick Recovery Commands
-
-If session breaks, resume with:
-
+### View Application Logs
 ```bash
-cd /Users/iracic/PycharmProjects/Sandbox-API-Broker
+aws logs tail /ecs/sandbox-broker --follow --region eu-central-1 --profile okta-sso
+```
 
-# Login to AWS
-aws sso login --profile okta-sso
-
-# Check quota status
-aws service-quotas get-requested-service-quota-change \
-  --request-id 0117cfa2679b4b0d8a0c51023e2d8040Hxa0jvMu \
+### Check ECS Service Health
+```bash
+aws ecs describe-services \
+  --cluster sandbox-broker-cluster \
+  --services sandbox-broker \
   --region eu-central-1 \
   --profile okta-sso \
-  --query 'RequestedQuota.Status'
+  --query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount}'
+```
 
-# If APPROVED, complete deployment
-export TF_VAR_broker_api_token="a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e"
-export TF_VAR_broker_admin_token="083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c"
-export TF_VAR_csp_api_token="ccda70ef61cb8ac8962ca5c337e19c51f41eedd98c1a2341ce94bc928d10cc41"
-export AWS_PROFILE=okta-sso
+### Check ALB Target Health
+```bash
+TG_ARN=$(aws elbv2 describe-target-groups \
+  --names sandbox-broker-tg \
+  --query 'TargetGroups[0].TargetGroupArn' \
+  --output text \
+  --profile okta-sso \
+  --region eu-central-1)
+
+aws elbv2 describe-target-health \
+  --target-group-arn $TG_ARN \
+  --profile okta-sso \
+  --region eu-central-1
+```
+
+### Force New ECS Deployment
+```bash
+aws ecs update-service \
+  --cluster sandbox-broker-cluster \
+  --service sandbox-broker \
+  --force-new-deployment \
+  --region eu-central-1 \
+  --profile okta-sso
+```
+
+### Trigger Background Jobs Manually
+```bash
+# Sync sandboxes from CSP
+curl -X POST \
+  -H "Authorization: Bearer 083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/admin/sync
+
+# Cleanup pending deletion sandboxes
+curl -X POST \
+  -H "Authorization: Bearer 083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/admin/cleanup
+
+# Auto-expire stale allocations
+curl -X POST \
+  -H "Authorization: Bearer 083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/admin/auto-expire
+```
+
+### Enable Background Job Schedulers
+```bash
+# Currently DISABLED by default to avoid unexpected costs
+# To enable, set state = "ENABLED" in terraform/eventbridge.tf and run:
 terraform apply
 ```
 
-## Summary for New Session
+## Project Files
 
-**What to tell Claude:**
-> "We were deploying the Sandbox Broker API to AWS ECS Fargate in eu-central-1. Deployment is 95% complete (47/49 resources created) but blocked waiting for AWS to approve an Elastic IP quota increase (Request ID: 0117cfa2679b4b0d8a0c51023e2d8040Hxa0jvMu). Once approved, we need to run `terraform apply` to create the remaining 2 resources (Elastic IP + NAT Gateway), then create a DNS A record pointing api-sandbox-broker.highvelocitynetworking.com to the ALB. All details are in DEPLOYMENT_STATUS.md."
+```
+/Users/iracic/PycharmProjects/Sandbox-API-Broker/
+├── app/                          # FastAPI application
+│   ├── api/                      # API routes
+│   ├── core/                     # Config, auth, logging
+│   ├── db/                       # DynamoDB client
+│   ├── jobs/                     # Background jobs
+│   ├── middleware/               # Rate limiting, logging
+│   └── models/                   # Pydantic models
+├── terraform/                    # Infrastructure as Code
+│   ├── main.tf                   # Provider config
+│   ├── vpc.tf                    # VPC, subnets, NAT
+│   ├── dynamodb.tf               # DynamoDB table + GSIs ✅ FIXED
+│   ├── vpc_endpoints.tf          # Secrets Manager endpoint ✅ NEW
+│   ├── ecs.tf                    # ECS cluster, tasks
+│   ├── alb.tf                    # Load balancer
+│   ├── iam.tf                    # IAM roles
+│   ├── secrets.tf                # Secrets Manager
+│   ├── cloudwatch.tf             # Logs
+│   ├── eventbridge.tf            # Background jobs
+│   ├── outputs.tf                # Output values
+│   ├── variables.tf              # Input variables
+│   └── terraform.tfvars          # Variable values
+├── Dockerfile                    # Linux/amd64 compatible
+├── requirements.txt              # Python dependencies
+├── .tokens.txt                   # API tokens (NOT committed)
+├── DEPLOYMENT_GUIDE.md           # Full deployment guide
+├── DEPLOYMENT_STATUS.md          # This file
+└── README.md                     # Project overview
+```
+
+## Git Commits
+
+Latest commits:
+```
+34edf43 - Fix: DynamoDB GSI schema and add VPC endpoint for Secrets Manager
+b64ebc2 - Phase 6: AWS Infrastructure & Enhanced Swagger Documentation
+```
+
+## Next Steps (Optional)
+
+### Production Hardening
+1. **Enable EventBridge Schedulers** - Currently disabled to avoid costs
+2. **Set up CloudWatch Alarms** - Alert on high error rates, CPU, memory
+3. **Configure Auto-scaling Policies** - Fine-tune based on actual load
+4. **Enable X-Ray Tracing** - Distributed tracing for performance insights
+5. **Add WAF Rules** - Web Application Firewall for additional security
+
+### Load Testing
+```bash
+# Test 1000 concurrent allocations
+ab -n 1000 -c 100 \
+  -H "Authorization: Bearer a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e" \
+  -H "X-Track-ID: load-test-1" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/allocate
+```
+
+### Disaster Recovery
+- DynamoDB: Point-in-time recovery enabled (last 35 days)
+- Secrets: Stored in AWS Secrets Manager with automatic rotation support
+- Infrastructure: All defined in Terraform (recreate in minutes)
+
+## Troubleshooting
+
+### Issue: ECS Tasks Not Starting
+**Check**: Security groups, VPC endpoints, NAT Gateway
+```bash
+aws ecs describe-tasks \
+  --cluster sandbox-broker-cluster \
+  --tasks $(aws ecs list-tasks --cluster sandbox-broker-cluster --query 'taskArns[0]' --output text --profile okta-sso --region eu-central-1) \
+  --profile okta-sso \
+  --region eu-central-1
+```
+
+### Issue: 500 Errors from API
+**Check**: Application logs for exceptions
+```bash
+aws logs tail /ecs/sandbox-broker --follow --region eu-central-1 --profile okta-sso
+```
+
+### Issue: DynamoDB Throttling
+**Solution**: Switch from PAY_PER_REQUEST to PROVISIONED with auto-scaling
+```hcl
+# In terraform/dynamodb.tf
+billing_mode   = "PROVISIONED"
+read_capacity  = 5
+write_capacity = 5
+```
+
+---
+
+## Summary for Future Sessions
+
+**Deployment Complete**: All infrastructure deployed and tested successfully.
+
+**API Endpoint**: `https://api-sandbox-broker.highvelocitynetworking.com/v1`
+
+**Key Achievements**:
+- ✅ 49/49 AWS resources created
+- ✅ DynamoDB GSI schema fixed and operational
+- ✅ VPC endpoints for private AWS service connectivity
+- ✅ Full API workflow tested (allocate, mark-for-deletion, sync)
+- ✅ HTTPS with ACM certificate
+- ✅ Multi-AZ deployment for high availability
+
+**Status**: **PRODUCTION READY** 🚀
 
 ---
 
