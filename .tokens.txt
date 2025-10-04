@@ -1,0 +1,26 @@
+# Sandbox Broker API - Authentication Tokens
+# Generated: 2025-10-04
+# KEEP THIS FILE SECURE - DO NOT COMMIT TO GIT
+
+# Track API Token (for Instruqt tracks to call the API)
+BROKER_API_TOKEN=a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e
+
+# Admin Token (for admin endpoints: sync, cleanup, stats, list)
+BROKER_ADMIN_TOKEN=083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c
+
+# CSP API Token (Infoblox CSP - already in use)
+CSP_API_TOKEN=ccda70ef61cb8ac8962ca5c337e19c51f41eedd98c1a2341ce94bc928d10cc41
+
+# API Endpoint (will be available after deployment)
+API_ENDPOINT=https://api-sandbox-broker.highvelocitynetworking.com/v1
+
+# Example API Calls:
+#
+# Allocate sandbox:
+# curl -X POST $API_ENDPOINT/allocate \
+#   -H "Authorization: Bearer $BROKER_API_TOKEN" \
+#   -H "X-Track-ID: my-track-123"
+#
+# Get stats:
+# curl -X GET $API_ENDPOINT/admin/stats \
+#   -H "Authorization: Bearer $BROKER_ADMIN_TOKEN"

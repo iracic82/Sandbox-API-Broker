@@ -139,15 +139,14 @@ resource "aws_ecs_service" "app" {
 
   health_check_grace_period_seconds = 120
 
-  # Enable service deployment circuit breaker
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 100
+  # Deployment configuration
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
 
-    deployment_circuit_breaker {
-      enable   = true
-      rollback = true
-    }
+  # Enable service deployment circuit breaker
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
   }
 
   # Ensure ALB is created before service
