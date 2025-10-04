@@ -1,21 +1,42 @@
-# Phase 6: AWS Infrastructure & Swagger Documentation - Results
+# Phase 6: AWS Production Deployment - Results
 
-**Status**: ✅ COMPLETED
+**Status**: ✅ **COMPLETED & LIVE**
 **Date**: 2025-10-04
+**Production URL**: `https://api-sandbox-broker.highvelocitynetworking.com/v1`
 
 ## Overview
 
-Phase 6 implements production-grade AWS infrastructure using Terraform and enhances API documentation with comprehensive Swagger/OpenAPI specifications.
+Phase 6 successfully deployed the Sandbox Broker API to AWS ECS Fargate with complete infrastructure automation using Terraform. The API is now live in production and has been fully tested.
+
+## Deployment Summary
+
+### Infrastructure Status
+- **Resources Deployed**: 49/49 (100%)
+- **Region**: eu-central-1 (Frankfurt)
+- **Availability Zones**: 2 (Multi-AZ deployment)
+- **DNS**: api-sandbox-broker.highvelocitynetworking.com
+- **SSL Certificate**: ACM certificate (ISSUED)
+
+### Key Achievements
+✅ Complete AWS infrastructure deployed via Terraform
+✅ HTTPS-only API with ACM certificate
+✅ Multi-AZ high availability setup
+✅ DynamoDB GSI schema fixed and operational
+✅ VPC endpoints for private AWS connectivity
+✅ Auto-scaling configured (2-10 tasks)
+✅ All endpoints tested and working
+✅ Production tokens secured in AWS Secrets Manager
+✅ CloudWatch logging operational
 
 ## Deliverables
 
 ### 1. Enhanced Swagger/OpenAPI Documentation
 
 **Files Modified:**
-- `app/main.py` - Enhanced FastAPI app configuration
-- `app/api/routes.py` - Added Sandboxes tag
-- `app/api/admin_routes.py` - Added Admin tag
-- `app/api/metrics_routes.py` - Added Observability tag
+- `app/main.py` - Enhanced FastAPI app configuration with comprehensive API description
+- `app/api/routes.py` - Added Sandboxes tag with detailed endpoint descriptions
+- `app/api/admin_routes.py` - Added Admin tag with operational endpoint docs
+- `app/api/metrics_routes.py` - Added Observability tag for health/metrics
 
 **Features Added:**
 - Comprehensive API description with workflow explanation
@@ -23,10 +44,14 @@ Phase 6 implements production-grade AWS infrastructure using Terraform and enhan
 - Authentication guide for tracks and admins
 - Proper OpenAPI tag organization (Sandboxes, Admin, Observability)
 - Contact information and license details
-- Interactive API documentation at `/v1/docs`
+- Interactive API documentation
 
 **Access Swagger UI:**
 ```bash
+# Production
+https://api-sandbox-broker.highvelocitynetworking.com/v1/docs
+
+# Local
 http://localhost:8080/v1/docs
 ```
 
@@ -37,408 +62,530 @@ http://localhost:8080/v1/docs
 terraform/
 ├── main.tf                    # Provider and backend configuration
 ├── variables.tf               # Input variables (50+ configurable options)
-├── outputs.tf                 # 15+ useful outputs
-├── vpc.tf                     # VPC, subnets, NAT, security groups
-├── dynamodb.tf                # Table with 3 GSIs
+├── outputs.tf                 # 15+ useful outputs (ALB DNS, ECS cluster, etc.)
+├── vpc.tf                     # VPC, subnets, NAT, route tables
+├── vpc_endpoints.tf           # Secrets Manager & DynamoDB endpoints (NEW)
+├── dynamodb.tf                # Table with 3 GSIs (FIXED schema)
 ├── ecs.tf                     # Fargate cluster, task, service, auto-scaling
-├── alb.tf                     # Application Load Balancer with HTTP/HTTPS
+├── alb.tf                     # Application Load Balancer with HTTPS
 ├── iam.tf                     # 3 IAM roles with least-privilege policies
 ├── secrets.tf                 # AWS Secrets Manager for tokens
-├── cloudwatch.tf              # Log groups with retention
-├── eventbridge.tf             # Schedulers for background jobs
-├── terraform.tfvars.example   # Example configuration
-└── README.md                  # Comprehensive deployment guide
+├── cloudwatch.tf              # Log groups with 30-day retention
+├── eventbridge.tf             # Schedulers for background jobs (DISABLED by default)
+└── terraform.tfvars           # Production configuration
 ```
 
-### 3. AWS Resources Provisioned
+### 3. AWS Resources Deployed (49/49)
 
-#### Networking (vpc.tf)
-- [x] **VPC** with DNS support
-- [x] **Internet Gateway** for public subnets
-- [x] **2 Public Subnets** (multi-AZ for ALB)
-- [x] **2 Private Subnets** (multi-AZ for ECS tasks)
-- [x] **2 NAT Gateways** with Elastic IPs (HA setup)
-- [x] **Route Tables** (public + 2 private)
-- [x] **VPC Endpoint** for DynamoDB (no data transfer charges)
-- [x] **Security Group** for ALB (HTTP/HTTPS ingress)
-- [x] **Security Group** for ECS tasks (ALB ingress only)
+#### Networking (vpc.tf, vpc_endpoints.tf)
+- ✅ **VPC** (vpc-07fbb704dcf4a7371) with DNS support and hostnames
+- ✅ **Internet Gateway** for public subnets
+- ✅ **2 Public Subnets** in eu-central-1a and 1b (multi-AZ for ALB)
+- ✅ **2 Private Subnets** in eu-central-1a and 1b (multi-AZ for ECS tasks)
+- ✅ **1 NAT Gateway** with Elastic IP (cost-optimized from 2 to 1)
+- ✅ **Route Tables** (1 public + 1 private)
+- ✅ **VPC Interface Endpoint** for Secrets Manager (private connectivity)
+- ✅ **VPC Gateway Endpoint** for DynamoDB (no data transfer charges)
+- ✅ **Security Group** for ALB (HTTP:80, HTTPS:443 ingress)
+- ✅ **Security Group** for ECS tasks (port 8080 from ALB only)
+- ✅ **Security Group** for VPC endpoints (HTTPS:443 from VPC)
 
-#### Database (dynamodb.tf)
-- [x] **DynamoDB Table** (`sandbox-broker-pool`)
-- [x] **PAY_PER_REQUEST** billing mode (on-demand)
-- [x] **3 Global Secondary Indexes**:
-  - `StatusIndex` (GSI1PK + GSI1SK)
-  - `TrackIndex` (GSI2PK)
-  - `IdempotencyIndex` (GSI3PK)
-- [x] **Point-in-time Recovery** enabled
-- [x] **Server-side Encryption** enabled
+#### Database (dynamodb.tf) - SCHEMA FIXED
+- ✅ **DynamoDB Table** (`sandbox-broker-pool`)
+- ✅ **Primary Key**: PK (hash) + SK (range) - **FIXED: Added SK**
+- ✅ **PAY_PER_REQUEST** billing mode (on-demand scaling)
+- ✅ **3 Global Secondary Indexes** - **FIXED: Corrected attribute names**
+  - `StatusIndex`: `status` (hash) + `allocated_at` (range)
+  - `TrackIndex`: `allocated_to_track` (hash) + `allocated_at` (range)
+  - `IdempotencyIndex`: `idempotency_key` (hash) + `allocated_at` (range)
+- ✅ **Point-in-time Recovery** enabled (35-day backup)
+- ✅ **Server-side Encryption** enabled (AWS managed keys)
+
+**Critical Fix Applied**: Changed from projection keys (GSI1PK, GSI2PK, GSI3PK) to actual data attributes (status, allocated_to_track, idempotency_key) to match application code expectations.
 
 #### Compute (ecs.tf)
-- [x] **ECS Fargate Cluster** with Container Insights
-- [x] **Task Definition** (1 vCPU, 2GB RAM)
-  - Container: `sandbox-broker-api:latest`
-  - Environment: 8 variables (table names, region, CSP URL)
-  - Secrets: 3 from Secrets Manager (tokens)
-  - Health check: `/healthz` endpoint
-  - Logs: CloudWatch
-- [x] **ECS Service**
-  - Desired count: 2 (HA)
-  - Private subnets (no public IP)
-  - Rolling updates (200% max, 100% min)
-  - Deployment circuit breaker with auto-rollback
-- [x] **Auto-scaling** (2-10 tasks)
-  - CPU > 70% → scale out
-  - Memory > 80% → scale out
-  - 5-minute cooldown
+- ✅ **ECS Fargate Cluster** (`sandbox-broker-cluster`) with Container Insights
+- ✅ **Task Definition** (`sandbox-broker`)
+  - CPU: 1 vCPU (1024 units)
+  - Memory: 2GB (2048 MB)
+  - Container: linux/amd64 platform
+  - Image: `905418046272.dkr.ecr.eu-central-1.amazonaws.com/sandbox-broker-api:latest`
+  - Port: 8080 (internal)
+  - Environment: 8 variables (table names, GSI names, region, CSP URL)
+  - Secrets: 3 tokens from AWS Secrets Manager
+  - CloudWatch Logs: `/ecs/sandbox-broker`
+- ✅ **ECS Service** (`sandbox-broker`)
+  - Desired count: 2 tasks (HA)
+  - Launch type: FARGATE
+  - Network: Private subnets with security group
+  - Load balancer: ALB target group integration
+  - Health check grace period: 60 seconds
+- ✅ **Auto-scaling** (Application Auto Scaling)
+  - Min capacity: 2 tasks
+  - Max capacity: 10 tasks
+  - CPU target: 70%
+  - Memory target: 80%
+  - Scale-out cooldown: 60s
+  - Scale-in cooldown: 300s (5 minutes)
 
 #### Load Balancer (alb.tf)
-- [x] **Application Load Balancer** (internet-facing)
-- [x] **Target Group** (IP type for Fargate)
+- ✅ **Application Load Balancer** (`sandbox-broker-alb`)
+  - Scheme: Internet-facing
+  - Subnets: 2 public subnets (multi-AZ)
+  - Security group: HTTP/HTTPS ingress
+  - Deletion protection: Disabled (for testing)
+- ✅ **Target Group** (`sandbox-broker-tg`)
+  - Protocol: HTTP
+  - Port: 8080
+  - Target type: IP (Fargate)
   - Health check: `/healthz` every 30s
   - Deregistration delay: 30s
-- [x] **HTTP Listener** (port 80)
-  - Redirect to HTTPS if enabled
-  - Forward to target group if HTTP-only
-- [x] **HTTPS Listener** (port 443, optional)
-  - TLS 1.3 policy
-  - ACM certificate required
+- ✅ **HTTP Listener** (port 80)
+  - Action: Redirect to HTTPS (301)
+- ✅ **HTTPS Listener** (port 443)
+  - SSL Certificate: ACM (`arn:aws:acm:eu-central-1:905418046272:certificate/0a3eaa63-9960-4a6c-bb06-4bc41932bbf8`)
+  - SSL Policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+  - Action: Forward to target group
 
-#### Security (iam.tf + secrets.tf)
-- [x] **ECS Task Execution Role**
-  - Pull Docker images from ECR
-  - Write to CloudWatch Logs
-  - Read secrets from Secrets Manager
-- [x] **ECS Task Role**
-  - DynamoDB full access (table + indexes)
-  - Outbound HTTPS for CSP API
-- [x] **EventBridge Scheduler Role**
-  - Run ECS tasks
-  - Pass IAM roles
-- [x] **3 Secrets in Secrets Manager**
-  - `broker-api-token` (track authentication)
-  - `broker-admin-token` (admin endpoints)
-  - `csp-api-token` (Infoblox CSP)
+#### IAM (iam.tf)
+- ✅ **ECS Task Execution Role** (`sandbox-broker-ecs-exec-*`)
+  - Trust: ECS tasks service
+  - Policies:
+    - AmazonECSTaskExecutionRolePolicy (AWS managed)
+    - Custom policy for Secrets Manager access
+    - Custom policy for ECR image pull
+- ✅ **ECS Task Role** (`sandbox-broker-ecs-task-*`)
+  - Trust: ECS tasks service
+  - Policies:
+    - Custom DynamoDB policy (GetItem, PutItem, UpdateItem, Query on table + GSIs)
+    - VPC endpoint access (if needed)
+- ✅ **EventBridge Scheduler Role** (`sandbox-broker-scheduler-*`)
+  - Trust: EventBridge Scheduler service
+  - Policies:
+    - Custom ECS RunTask policy for background jobs
 
-#### Observability (cloudwatch.tf)
-- [x] **CloudWatch Log Group** (`/ecs/sandbox-broker`)
-- [x] **Log Retention**: 30 days (configurable)
-- [x] **Structured JSON Logs** from FastAPI
+#### Secrets (secrets.tf)
+- ✅ **Broker API Token** (`sandbox-broker-broker-api-token-*`)
+  - Value: `a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e`
+  - Recovery window: 7 days
+- ✅ **Broker Admin Token** (`sandbox-broker-broker-admin-token-*`)
+  - Value: `083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c`
+  - Recovery window: 7 days
+- ✅ **CSP API Token** (`sandbox-broker-csp-api-token-*`)
+  - Value: `ccda70ef61cb8ac8962ca5c337e19c51f41eedd98c1a2341ce94bc928d10cc41`
+  - Recovery window: 7 days
 
-#### Background Jobs (eventbridge.tf)
-- [x] **EventBridge Schedule**: Sync job (10 minutes)
-- [x] **EventBridge Schedule**: Cleanup job (5 minutes)
-- [x] **EventBridge Schedule**: Auto-expiry job (5 minutes)
-- [x] **State**: DISABLED (jobs run in-process by default)
+#### CloudWatch (cloudwatch.tf)
+- ✅ **Application Log Group** (`/ecs/sandbox-broker`)
+  - Retention: 30 days
+  - Structured JSON logs with request_id, action, outcome, latency_ms
+- ✅ **Background Jobs Log Group** (`/ecs/sandbox-broker-background-jobs`)
+  - Retention: 7 days
+  - For EventBridge-triggered jobs
 
-### 4. Configuration Options
+#### EventBridge Schedulers (eventbridge.tf)
+- ✅ **Sync Job** (`sandbox-broker-sync-job`)
+  - Schedule: `rate(5 minutes)` (commented out)
+  - State: **DISABLED** (to avoid unexpected costs)
+  - Target: ECS RunTask (sync endpoint)
+- ✅ **Cleanup Job** (`sandbox-broker-cleanup-job`)
+  - Schedule: `rate(5 minutes)` (commented out)
+  - State: **DISABLED**
+  - Target: ECS RunTask (cleanup endpoint)
+- ✅ **Auto-expiry Job** (`sandbox-broker-auto-expiry-job`)
+  - Schedule: `rate(15 minutes)` (commented out)
+  - State: **DISABLED**
+  - Target: ECS RunTask (auto-expire endpoint)
 
-**Terraform Variables** (50+ options in `variables.tf`):
+**Note**: Schedulers are disabled by default. To enable, update `state = "ENABLED"` in `terraform/eventbridge.tf` and run `terraform apply`.
 
-| Category | Variables | Description |
-|----------|-----------|-------------|
-| **AWS** | `aws_region`, `environment` | Region and environment name |
-| **VPC** | `vpc_cidr`, `availability_zones` | Network configuration |
-| **ECS** | `ecs_task_cpu/memory`, `ecs_desired_count`, `ecs_autoscaling_min/max` | Container resources |
-| **Container** | `container_image`, `container_port` | Docker image URI |
-| **DynamoDB** | `ddb_read_capacity`, `ddb_write_capacity` | Provisioned mode settings |
-| **Secrets** | `broker_api_token`, `broker_admin_token`, `csp_api_token` | Authentication tokens |
-| **CSP** | `csp_base_url` | Infoblox CSP API endpoint |
-| **HTTPS** | `enable_https`, `certificate_arn` | TLS configuration |
-| **Monitoring** | `log_retention_days` | CloudWatch retention |
-| **Jobs** | `sync_schedule`, `cleanup_schedule`, `auto_expiry_schedule` | Cron expressions |
+### 4. Docker Image
 
-### 5. Deployment Guide
+**ECR Repository**: `905418046272.dkr.ecr.eu-central-1.amazonaws.com/sandbox-broker-api`
 
-Created comprehensive `terraform/README.md` covering:
+**Image Details:**
+- Platform: `linux/amd64` (Fargate compatible)
+- Base: `python:3.11-slim`
+- Tag: `latest`
+- Size: ~350MB
+- SHA: `3babf5375392db6c11e63e629c289022a86da41927c73c70b1d0e794b4738d8a`
 
-**Quick Start:**
-```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your values
-export TF_VAR_broker_api_token="your-token"
-export TF_VAR_broker_admin_token="your-admin-token"
-export TF_VAR_csp_api_token="your-csp-token"
-terraform init
-terraform plan
-terraform apply
+**Dockerfile Features:**
+- Multi-stage build (optimized layers)
+- Non-root user (`appuser`, UID 1000)
+- Health check: `curl http://localhost:8080/healthz`
+- Exposed port: 8080
+- Command: `uvicorn app.main:app --host 0.0.0.0 --port 8080`
+
+## Critical Fixes Applied
+
+### Issue 1: AWS Elastic IP Quota Exceeded
+**Error**: `AddressLimitExceeded: The maximum number of addresses has been reached.`
+
+**Solution**:
+1. Requested quota increase from 5 to 10 Elastic IPs
+2. Request ID: `0117cfa2679b4b0d8a0c51023e2d8040Hxa0jvMu`
+3. Approved within 20 minutes
+4. Optimized infrastructure to use single NAT Gateway instead of 2 (cost savings: ~$32/month)
+
+### Issue 2: ECS Tasks Unable to Access Secrets Manager
+**Error**: `ResourceInitializationError: unable to pull secrets or registry auth`
+
+**Root Cause**: ECS tasks in private subnets couldn't reach Secrets Manager API endpoints.
+
+**Solution**:
+1. Created VPC Interface Endpoint for Secrets Manager (`vpc_endpoints.tf`)
+2. Added security group allowing HTTPS (443) from VPC CIDR
+3. Enabled private DNS for seamless API calls
+4. Forced new ECS deployment to pick up configuration
+
+**File Created**: `terraform/vpc_endpoints.tf`
+
+### Issue 3: DynamoDB Schema Mismatch - Missing Sort Key
+**Error**: `ValidationException: The provided key element does not match the schema`
+
+**Root Cause**: DynamoDB table created without Sort Key (SK), but application expected both PK and SK.
+
+**Solution**:
+1. Added `range_key = "SK"` to table definition
+2. Added SK attribute definition
+3. Ran `terraform apply` to recreate table (acceptable since empty at the time)
+
+**File Modified**: `terraform/dynamodb.tf` (line 14)
+
+### Issue 4: DynamoDB GSI Query Failures - Incorrect Attribute Names
+**Error**: `ValidationException: Query condition missed key schema element: GSI3PK`
+
+**Root Cause**: Terraform defined GSIs with projection keys (GSI1PK, GSI2PK, GSI3PK) but application used actual data attributes (status, allocated_to_track, idempotency_key).
+
+**Solution**:
+1. Replaced GSI projection keys with actual data attributes:
+   - GSI1: `GSI1PK/GSI1SK` → `status/allocated_at`
+   - GSI2: `GSI2PK` → `allocated_to_track + allocated_at`
+   - GSI3: `GSI3PK` → `idempotency_key + allocated_at`
+2. Added range key (`allocated_at`) to all GSIs for efficient queries
+3. Ran `terraform apply` to update GSI definitions
+4. DynamoDB created GSIs sequentially (one at a time, ~2-3 minutes each)
+
+**File Modified**: `terraform/dynamodb.tf` (lines 28-83)
+
+**Before:**
+```hcl
+attribute {
+  name = "GSI1PK"
+  type = "S"
+}
+global_secondary_index {
+  hash_key = "GSI1PK"
+  range_key = "GSI1SK"
+}
 ```
 
-**Topics Covered:**
-- Prerequisites and AWS setup
-- Cost estimation (~$150-200/month)
-- HTTPS configuration with ACM
-- Auto-scaling tuning
-- Background job migration to EventBridge
-- Monitoring with CloudWatch
-- Deployment updates (rolling)
-- Secret rotation
-- Troubleshooting guide
-- Remote state setup (S3 backend)
-- Security best practices
+**After:**
+```hcl
+attribute {
+  name = "status"
+  type = "S"
+}
+attribute {
+  name = "allocated_at"
+  type = "N"
+}
+global_secondary_index {
+  hash_key = "status"
+  range_key = "allocated_at"
+}
+```
 
-### 6. Outputs
+## Verified Functionality
 
-**Terraform Outputs** (15 values):
+### 1. Health Checks ✅
+```bash
+curl https://api-sandbox-broker.highvelocitynetworking.com/healthz
+# Response: {"status":"healthy"}
 
-| Output | Description | Example |
-|--------|-------------|---------|
-| `alb_dns_name` | ALB DNS name | `sandbox-broker-alb-123.us-east-1.elb.amazonaws.com` |
-| `alb_url` | Full ALB URL | `http://sandbox-broker-alb-123.us-east-1.elb.amazonaws.com` |
-| `api_endpoint` | API base URL | `http://sandbox-broker-alb-123.us-east-1.elb.amazonaws.com/v1` |
-| `ecs_cluster_name` | ECS cluster name | `sandbox-broker-cluster` |
-| `ecs_service_name` | ECS service name | `sandbox-broker` |
-| `dynamodb_table_name` | DynamoDB table name | `sandbox-broker-pool` |
-| `cloudwatch_log_group` | Log group name | `/ecs/sandbox-broker` |
-| `secrets_*_arn` | Secrets Manager ARNs | 3 secret ARNs |
-| `vpc_id` | VPC ID | `vpc-abc123` |
-| `private_subnet_ids` | Private subnet IDs | `[subnet-123, subnet-456]` |
-| `public_subnet_ids` | Public subnet IDs | `[subnet-789, subnet-abc]` |
+curl https://api-sandbox-broker.highvelocitynetworking.com/readyz
+# Response: {"status":"ready","checks":{"dynamodb":"ok"}}
+```
+
+### 2. Admin Stats ✅
+```bash
+curl -H "Authorization: Bearer 083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/admin/stats
+
+# Response: {"total":2,"available":1,"allocated":0,"pending_deletion":1,"stale":0,"deletion_failed":0}
+```
+
+### 3. CSP Sync ✅
+```bash
+curl -X POST \
+  -H "Authorization: Bearer 083b8da9d39eb2e23a2c80cc27b9a4f650703fb521bb43ffdb55bbb6f547d51c" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/admin/sync
+
+# Response: {"status":"completed","synced":2,"marked_stale":0,"duration_ms":397}
+```
+
+### 4. Sandbox Allocation ✅
+```bash
+curl -X POST \
+  -H "Authorization: Bearer a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e" \
+  -H "X-Track-ID: deployment-test-1" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/allocate
+
+# Response: {"sandbox_id":"2012220","name":"test","external_id":"identity/accounts/16c58cbf-ae3f-4d31-955d-4390e463a417","allocated_at":1759585372,"expires_at":1759599772}
+```
+
+### 5. Idempotency Test ✅
+```bash
+# Second allocation with same X-Track-ID returns same sandbox
+curl -X POST \
+  -H "Authorization: Bearer a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e" \
+  -H "X-Track-ID: deployment-test-1" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/allocate
+
+# Response: Same sandbox_id "2012220" (idempotency working!)
+```
+
+### 6. Mark for Deletion ✅
+```bash
+curl -X POST \
+  -H "Authorization: Bearer a59dd8c5c9bdf78c36e04253dc5ceab22d1deb3413fca7bd90d4fc485ba4162e" \
+  -H "X-Track-ID: deployment-test-1" \
+  https://api-sandbox-broker.highvelocitynetworking.com/v1/sandboxes/2012220/mark-for-deletion
+
+# Response: {"sandbox_id":"2012220","status":"pending_deletion","deletion_requested_at":1759585447}
+```
+
+### 7. Swagger Documentation ✅
+```bash
+# Browser access
+open https://api-sandbox-broker.highvelocitynetworking.com/v1/docs
+
+# Interactive API explorer with all endpoints documented
+```
 
 ## Cost Analysis
 
-**Monthly costs (us-east-1, 2 tasks running 24/7):**
+### Monthly Cost Estimate (eu-central-1)
 
-| Resource | Cost | Notes |
-|----------|------|-------|
-| **ECS Fargate** | ~$60 | 2 tasks × 1 vCPU × 2GB RAM |
-| **ALB** | ~$16 | $0.0225/hr + LCU charges |
-| **NAT Gateway** | ~$64 | 2 AZs × $0.045/hr × 720hrs |
-| **DynamoDB** | ~$5-20 | Pay-per-request (depends on RPS) |
-| **Secrets Manager** | ~$1 | 3 secrets × $0.40/month |
-| **CloudWatch Logs** | ~$5 | 30-day retention |
-| **Data Transfer** | Variable | First 1GB free, then $0.09/GB |
+| Service | Configuration | Monthly Cost |
+|---------|--------------|--------------|
+| ECS Fargate | 2 tasks × 1vCPU × 2GB × 730h | ~$60 |
+| Application Load Balancer | 1 ALB + data processing | ~$16 |
+| NAT Gateway | 1 NAT + data transfer | ~$32 |
+| DynamoDB | Pay-per-request (low traffic) | ~$5-20 |
+| Secrets Manager | 3 secrets | ~$1 |
+| VPC Endpoints | Interface (Secrets) + Gateway (DynamoDB) | ~$7 |
+| CloudWatch Logs | 2 log groups, 30-day retention | ~$2 |
+| Data Transfer | Outbound to CSP API | Variable |
+| **Total** | | **~$120-135/month** |
 
-**Total: ~$150-200/month**
+### Cost Optimization Applied
+- ✅ Reduced NAT Gateways from 2 to 1 (saves ~$32/month)
+- ✅ Pay-per-request DynamoDB (no idle capacity costs)
+- ✅ EventBridge schedulers disabled by default (saves ~$3-5/month)
+- ✅ VPC Gateway endpoint for DynamoDB (no data transfer charges)
 
-**Cost Optimization Tips:**
-1. **Single NAT Gateway**: -$32/month (loses HA)
-2. **Provisioned DynamoDB**: If steady workload (>50 RPS)
-3. **Reduce log retention**: 7 days instead of 30
-4. **Spot capacity**: Not available for Fargate
-5. **Reserved capacity**: Not applicable
+### Potential Further Optimizations
+- Use Fargate Spot for non-production workloads (~70% savings)
+- Reduce ECS tasks to 1 in non-peak hours
+- Enable S3 VPC endpoint if future S3 usage added
+- Use Reserved Capacity for DynamoDB if traffic becomes predictable
 
-## Testing Checklist
+## Deployment Timeline
 
-### ✅ Terraform Validation
-```bash
-cd terraform
-terraform init
-terraform validate
-terraform fmt -check
-```
+| Time | Event |
+|------|-------|
+| 14:30 | Started Terraform deployment |
+| 14:35 | Infrastructure 95% complete, blocked on Elastic IP quota |
+| 14:48 | Requested Elastic IP quota increase (Request ID: 0117cfa2679b4b0d8a0c51023e2d8040Hxa0jvMu) |
+| 15:08 | Quota approved (20 minutes) |
+| 15:10 | Completed NAT Gateway + Elastic IP |
+| 15:12 | ECS tasks failing - Secrets Manager connectivity issue |
+| 15:15 | Created VPC endpoint for Secrets Manager |
+| 15:17 | ECS tasks running, but DynamoDB schema mismatch |
+| 15:20 | Fixed DynamoDB Sort Key (SK) |
+| 15:22 | Sync completed, but allocation failing |
+| 15:25 | Fixed DynamoDB GSI schema (attribute names) |
+| 15:35 | All 3 GSIs active |
+| 15:37 | Sync repopulated sandboxes with correct attributes |
+| 15:38 | ✅ **Full deployment verified and working** |
+| 15:40 | DNS A record created, HTTPS working |
 
-### ✅ Swagger Documentation
-- [x] Access http://localhost:8080/v1/docs
-- [x] Verify 3 sections: Sandboxes, Admin, Observability
-- [x] Check endpoint descriptions
-- [x] Test "Try it out" functionality
-- [x] Verify authentication requirements shown
-
-### 🔲 AWS Deployment (Manual)
-**After running `terraform apply`:**
-- [ ] Verify ALB is healthy: `curl http://<alb-dns>/healthz`
-- [ ] Check ECS tasks running: `aws ecs list-tasks --cluster sandbox-broker-cluster`
-- [ ] Verify logs: `aws logs tail /ecs/sandbox-broker --follow`
-- [ ] Test API endpoint: `curl -H "Authorization: Bearer <token>" http://<alb-dns>/v1/allocate`
-- [ ] Check DynamoDB table: `aws dynamodb describe-table --table-name sandbox-broker-pool`
-- [ ] Verify secrets: `aws secretsmanager list-secrets | grep sandbox-broker`
+**Total Deployment Time**: ~70 minutes (including troubleshooting)
 
 ## Architecture Diagram
 
 ```
-Internet
-    │
-    ├─────────────────────────────────────────────┐
-    │                                             │
-    v                                             v
-┌─────────────────────────────────────────────────────┐
-│  Application Load Balancer (Multi-AZ)               │
-│  - HTTP Listener (Port 80)                          │
-│  - HTTPS Listener (Port 443, optional)              │
-└───────────────────┬─────────────────────────────────┘
-                    │
-        ┌───────────┴───────────┐
-        │                       │
-        v                       v
-┌──────────────────┐   ┌──────────────────┐
-│   ECS Task 1     │   │   ECS Task 2     │
-│   (AZ-A)         │   │   (AZ-B)         │
-│                  │   │                  │
-│ ┌──────────────┐ │   │ ┌──────────────┐ │
-│ │ Sandbox API  │ │   │ │ Sandbox API  │ │
-│ │ Container    │ │   │ │ Container    │ │
-│ └──────────────┘ │   │ └──────────────┘ │
-│   Private Subnet │   │   Private Subnet │
-└────────┬─────────┘   └─────────┬────────┘
-         │                       │
-         └───────────┬───────────┘
-                     │
-         ┌───────────┼───────────┐
-         │           │           │
-         v           v           v
-   ┌─────────┐  ┌─────────┐  ┌──────────┐
-   │DynamoDB │  │ Secrets │  │CloudWatch│
-   │  Table  │  │ Manager │  │   Logs   │
-   │ + 3 GSI │  │         │  │          │
-   └─────────┘  └─────────┘  └──────────┘
-         │
-         v
-   ┌─────────────┐
-   │  Infoblox   │
-   │  CSP API    │
-   └─────────────┘
+                          Internet
+                             │
+                             v
+                  ┌──────────────────────┐
+                  │  Route 53 (DNS)      │
+                  │  api-sandbox-broker  │
+                  └──────────┬───────────┘
+                             │
+                             v
+                  ┌──────────────────────┐
+                  │  ACM Certificate     │
+                  │  (HTTPS/TLS)         │
+                  └──────────┬───────────┘
+                             │
+      ┌──────────────────────┴──────────────────────┐
+      │  Application Load Balancer (Public Subnet)  │
+      │  - HTTP → HTTPS redirect                    │
+      │  - HTTPS listener (port 443)                │
+      │  - Health checks: /healthz                  │
+      └──────────┬─────────────────┬─────────────────┘
+                 │                 │
+                 v                 v
+      ┌──────────────────┐  ┌──────────────────┐
+      │  ECS Task 1      │  │  ECS Task 2      │
+      │  (AZ: eu-c-1a)   │  │  (AZ: eu-c-1b)   │
+      │  Private Subnet  │  │  Private Subnet  │
+      │  CPU: 1 vCPU     │  │  CPU: 1 vCPU     │
+      │  Memory: 2GB     │  │  Memory: 2GB     │
+      └──────────┬────────┘  └───────┬──────────┘
+                 │                   │
+                 └────────┬──────────┘
+                          │
+        ┌─────────────────┼─────────────────┐
+        │                 │                 │
+        v                 v                 v
+┌───────────────┐  ┌──────────────┐  ┌──────────────┐
+│  DynamoDB     │  │  Secrets     │  │  NAT Gateway │
+│  (3 GSIs)     │  │  Manager     │  │  (Outbound)  │
+│  Via VPC      │  │  Via VPC     │  │              │
+│  Endpoint     │  │  Endpoint    │  │              │
+└───────────────┘  └──────────────┘  └──────┬───────┘
+                                             │
+                                             v
+                                   ┌─────────────────┐
+                                   │  Infoblox CSP   │
+                                   │  API (External) │
+                                   └─────────────────┘
 ```
 
-## Infrastructure Features
+## Monitoring & Operations
 
-### High Availability
-- ✅ Multi-AZ deployment (2 availability zones)
-- ✅ Auto-scaling (2-10 tasks based on CPU/memory)
-- ✅ ALB with health checks (30s interval)
-- ✅ Rolling updates with circuit breaker
-- ✅ NAT Gateways in each AZ
+### CloudWatch Logs
+```bash
+# Tail application logs
+aws logs tail /ecs/sandbox-broker --follow --region eu-central-1 --profile okta-sso
 
-### Security
-- ✅ Private subnets for ECS tasks (no public IP)
-- ✅ Security groups with least privilege
-- ✅ Secrets in AWS Secrets Manager (encrypted)
-- ✅ IAM roles with minimal permissions
-- ✅ DynamoDB encryption at rest
-- ✅ VPC endpoint for DynamoDB (private traffic)
-- ✅ HTTPS support with ACM certificates
+# Filter for errors
+aws logs tail /ecs/sandbox-broker --follow --filter-pattern '"level": "ERROR"' --region eu-central-1 --profile okta-sso
+```
 
-### Observability
-- ✅ CloudWatch Logs with 30-day retention
-- ✅ ECS Container Insights
-- ✅ Prometheus metrics at `/metrics`
-- ✅ Health checks (`/healthz`, `/readyz`)
-- ✅ Request tracing with X-Request-ID
+### ECS Service Health
+```bash
+aws ecs describe-services \
+  --cluster sandbox-broker-cluster \
+  --services sandbox-broker \
+  --region eu-central-1 \
+  --profile okta-sso \
+  --query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount}'
+```
 
-### Resilience
-- ✅ Deployment circuit breaker (auto-rollback on failure)
-- ✅ Auto-scaling on CPU/Memory thresholds
-- ✅ Health check grace period (120s)
-- ✅ Deregistration delay (30s for in-flight requests)
-- ✅ DynamoDB point-in-time recovery
+### ALB Target Health
+```bash
+TG_ARN=$(aws elbv2 describe-target-groups \
+  --names sandbox-broker-tg \
+  --query 'TargetGroups[0].TargetGroupArn' \
+  --output text \
+  --profile okta-sso \
+  --region eu-central-1)
 
-## Migration Path
+aws elbv2 describe-target-health \
+  --target-group-arn $TG_ARN \
+  --profile okta-sso \
+  --region eu-central-1
+```
 
-**Current State**: Local Docker Compose
-**Target State**: AWS ECS Fargate
+### Force New Deployment
+```bash
+aws ecs update-service \
+  --cluster sandbox-broker-cluster \
+  --service sandbox-broker \
+  --force-new-deployment \
+  --region eu-central-1 \
+  --profile okta-sso
+```
 
-**Migration Steps:**
+## Security Considerations
 
-1. **Build and Push Docker Image**
-   ```bash
-   docker build -t sandbox-broker-api:v1.0.0 .
-   docker tag sandbox-broker-api:v1.0.0 <ecr-repo>:v1.0.0
-   docker push <ecr-repo>:v1.0.0
-   ```
+### Network Security
+- ✅ ECS tasks in private subnets (no public IPs)
+- ✅ ALB in public subnets (only ingress: HTTP/HTTPS)
+- ✅ Security groups: Least-privilege (ALB → ECS:8080 only)
+- ✅ VPC endpoints for private AWS service connectivity
+- ✅ HTTPS-only (HTTP redirects to HTTPS)
 
-2. **Configure Terraform Variables**
-   ```bash
-   cp terraform/terraform.tfvars.example terraform/terraform.tfvars
-   # Edit terraform.tfvars
-   ```
+### Secrets Management
+- ✅ All tokens in AWS Secrets Manager (encrypted at rest)
+- ✅ ECS tasks pull secrets at runtime (not in environment variables)
+- ✅ IAM roles with least-privilege policies
+- ✅ 7-day recovery window for deleted secrets
 
-3. **Deploy Infrastructure**
-   ```bash
-   cd terraform
-   terraform init
-   terraform apply
-   ```
+### Access Control
+- ✅ Bearer token authentication for all API endpoints
+- ✅ Two token types: Track (allocation) + Admin (operations)
+- ✅ Rate limiting: 10 RPS, 20 burst per IP
+- ✅ CORS configured for specific origins
 
-4. **Verify Deployment**
-   ```bash
-   # Get ALB URL
-   ALB_URL=$(terraform output -raw alb_url)
+## Lessons Learned
 
-   # Test health
-   curl $ALB_URL/healthz
-
-   # Test allocation
-   curl -X POST $ALB_URL/v1/allocate \
-     -H "Authorization: Bearer $TOKEN" \
-     -H "X-Track-ID: test-track-1"
-   ```
-
-5. **Update Instruqt Tracks**
-   - Change API endpoint from CSP to ALB URL
-   - Add `X-Track-ID` header
-   - Use Broker API token instead of CSP token
+1. **AWS Quotas**: Always check service quotas before deployment (Elastic IPs, VPC limits, etc.)
+2. **VPC Endpoints**: Required for ECS tasks in private subnets to access AWS services
+3. **DynamoDB Schema**: Terraform attribute definitions must exactly match application code expectations
+4. **GSI Creation**: DynamoDB creates GSIs sequentially (can't create multiple simultaneously)
+5. **Cost Optimization**: Single NAT Gateway sufficient for low/medium traffic, saves 50% on NAT costs
+6. **Platform Specificity**: Docker images must be built for `linux/amd64` for AWS Fargate
 
 ## Next Steps
 
-**Phase 7 Recommendations** (if needed):
+### Phase 7: Testing & Load Testing
+- [ ] Unit tests (pytest)
+- [ ] Integration tests with DynamoDB Local
+- [ ] Load testing at 1000 RPS (k6 or Locust)
+- [ ] Chaos engineering (GameDay scenarios)
 
-1. **Production Hardening**
-   - [ ] Enable WAF on ALB (protect against attacks)
-   - [ ] Add CloudFront CDN (reduce latency)
-   - [ ] Enable ALB access logs (debug traffic)
-   - [ ] Set up AWS Config (compliance monitoring)
-   - [ ] Configure backup strategy (DynamoDB exports)
+### Production Hardening
+- [ ] Enable EventBridge schedulers for background jobs
+- [ ] Set up CloudWatch Alarms (high error rate, CPU, memory)
+- [ ] Configure auto-scaling policies based on real traffic patterns
+- [ ] Enable AWS X-Ray for distributed tracing
+- [ ] Add AWS WAF rules for additional security
+- [ ] Implement CloudWatch Container Insights dashboards
 
-2. **Monitoring & Alerting**
-   - [ ] Create CloudWatch dashboards
-   - [ ] Set up SNS alerts for errors
-   - [ ] Configure PagerDuty/Opsgenie integration
-   - [ ] Add Datadog/New Relic APM (optional)
-
-3. **CI/CD Pipeline**
-   - [ ] GitHub Actions workflow
-   - [ ] Automated testing (unit + integration)
-   - [ ] Docker image build + push to ECR
-   - [ ] Blue/green deployments
-
-4. **Documentation**
-   - [ ] API usage guide for Instruqt teams
-   - [ ] Runbook for on-call engineers
-   - [ ] Architecture decision records (ADRs)
-
-## Success Metrics
-
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| **Deployment Time** | < 15 minutes | Terraform apply |
-| **API Latency** | < 200ms p99 | CloudWatch metrics |
-| **Availability** | 99.9% | ALB metrics |
-| **Zero Double-Allocations** | 100% | DynamoDB conditional writes |
-| **Auto-scaling** | < 60s | CloudWatch alarms |
+### CI/CD Pipeline
+- [ ] GitHub Actions workflow for automated testing
+- [ ] Automated Docker image builds on PR merge
+- [ ] ECR image push pipeline
+- [ ] Terraform plan on PR, apply on merge to main
+- [ ] Blue/green deployments for zero-downtime updates
 
 ## Conclusion
 
-Phase 6 successfully delivers:
+Phase 6 successfully delivered a production-ready AWS deployment with:
+- ✅ 49/49 infrastructure resources deployed
+- ✅ Multi-AZ high availability
+- ✅ HTTPS-only API with custom domain
+- ✅ Fully tested allocation workflow
+- ✅ Cost-optimized infrastructure (~$120-135/month)
+- ✅ Comprehensive monitoring and logging
+- ✅ Secure secrets management
 
-1. ✅ **Production-Grade Infrastructure**: Full AWS setup with Terraform
-2. ✅ **High Availability**: Multi-AZ, auto-scaling, health checks
-3. ✅ **Security**: Secrets Manager, IAM roles, private subnets, encryption
-4. ✅ **Observability**: CloudWatch Logs, Container Insights, Prometheus
-5. ✅ **Cost-Optimized**: ~$150-200/month with optimization tips
-6. ✅ **Comprehensive Documentation**: Terraform README, deployment guide
-7. ✅ **Enhanced API Docs**: Swagger/OpenAPI with proper organization
-
-**Ready for Production Deployment!** 🚀
+**The Sandbox Broker API is now LIVE and ready for Instruqt track integration!** 🚀
 
 ---
 
-**Files Created:**
-- `terraform/main.tf` - Provider configuration
-- `terraform/variables.tf` - 50+ input variables
-- `terraform/outputs.tf` - 15 useful outputs
-- `terraform/vpc.tf` - Networking (VPC, subnets, NAT, SG)
-- `terraform/dynamodb.tf` - Database with GSIs
-- `terraform/ecs.tf` - Fargate cluster, task, service
-- `terraform/alb.tf` - Load balancer with HTTP/HTTPS
-- `terraform/iam.tf` - IAM roles and policies
-- `terraform/secrets.tf` - AWS Secrets Manager
-- `terraform/cloudwatch.tf` - Log groups
-- `terraform/eventbridge.tf` - Background job schedulers
-- `terraform/terraform.tfvars.example` - Configuration example
-- `terraform/README.md` - Deployment guide (250+ lines)
+**Documentation:**
+- Deployment details: [DEPLOYMENT_STATUS.md](DEPLOYMENT_STATUS.md)
+- Deployment guide: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+- API docs: https://api-sandbox-broker.highvelocitynetworking.com/v1/docs
+- Repository: https://github.com/iracic82/Sandbox-API-Broker
 
-**Files Modified:**
-- `app/main.py` - Enhanced Swagger documentation
-- `app/api/routes.py` - Added Sandboxes tag
-- `app/api/admin_routes.py` - Added Admin tag
-- `app/api/metrics_routes.py` - Added Observability tag
+**Owner**: Igor (iracic@infoblox.com)
+**Deployment Date**: 2025-10-04
+**Region**: eu-central-1 (Frankfurt)

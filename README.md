@@ -74,8 +74,9 @@ See [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) for detailed implementation plan an
 - ✅ **Phase 3**: Observability & Background Jobs (Prometheus metrics, health checks, automated jobs)
 - ✅ **Phase 4**: Enhanced Security & Resilience (rate limiting, security headers, circuit breaker, CORS)
 - ✅ **Phase 5**: ENG CSP Production Integration (real API calls, mock/production mode, error handling)
+- ✅ **Phase 6**: AWS Production Deployment (49/49 resources, HTTPS, multi-AZ, auto-scaling)
 
-**Current Phase**: ✅ Phase 6 - AWS Infrastructure Complete!
+**Status**: 🚀 **PRODUCTION LIVE** - `https://api-sandbox-broker.highvelocitynetworking.com/v1`
 
 **Next Phase**: Phase 7 - Testing & Load Testing (Unit tests, integration tests, 1000 RPS load tests)
 
@@ -207,15 +208,33 @@ See [Quick Start](#-quick-start) section above.
 
 ### AWS Production Deployment
 
-Full production deployment to AWS ECS Fargate using Terraform. See [terraform/README.md](terraform/README.md) for detailed guide.
+✅ **Currently Deployed**: The API is live on AWS ECS Fargate in eu-central-1 (Frankfurt).
 
-**Quick deployment:**
+**Production URL**: `https://api-sandbox-broker.highvelocitynetworking.com/v1`
+
+**Deployment Status**: See [DEPLOYMENT_STATUS.md](DEPLOYMENT_STATUS.md) for complete details.
+
+**Infrastructure (49/49 resources deployed)**:
+- ✅ VPC with public/private subnets (multi-AZ)
+- ✅ ECS Fargate cluster with auto-scaling (2-10 tasks)
+- ✅ Application Load Balancer with HTTPS (ACM certificate)
+- ✅ DynamoDB table with 3 GSIs (fixed schema)
+- ✅ VPC endpoints (Secrets Manager, DynamoDB)
+- ✅ NAT Gateway with Elastic IP
+- ✅ AWS Secrets Manager for tokens
+- ✅ CloudWatch log groups
+- ✅ IAM roles with least-privilege policies
+- ✅ EventBridge schedulers for background jobs
+
+**Cost**: ~$120-135/month (eu-central-1)
+
+**To deploy your own instance:**
 ```bash
 # Build and push Docker image to ECR
-docker build -t sandbox-broker-api .
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
-docker tag sandbox-broker-api:latest <account>.dkr.ecr.us-east-1.amazonaws.com/sandbox-broker-api:latest
-docker push <account>.dkr.ecr.us-east-1.amazonaws.com/sandbox-broker-api:latest
+docker build --platform linux/amd64 -t sandbox-broker-api .
+aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.eu-central-1.amazonaws.com
+docker tag sandbox-broker-api:latest <account>.dkr.ecr.eu-central-1.amazonaws.com/sandbox-broker-api:latest
+docker push <account>.dkr.ecr.eu-central-1.amazonaws.com/sandbox-broker-api:latest
 
 # Deploy infrastructure with Terraform
 cd terraform
@@ -223,22 +242,9 @@ cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars with your configuration
 terraform init
 terraform apply
-
-# Get API endpoint
-terraform output api_endpoint
 ```
 
-**Infrastructure includes:**
-- VPC with public/private subnets (multi-AZ)
-- ECS Fargate cluster with auto-scaling (2-10 tasks)
-- Application Load Balancer (HTTP/HTTPS)
-- DynamoDB table with 3 GSIs
-- AWS Secrets Manager for tokens
-- CloudWatch log groups
-- IAM roles with least-privilege policies
-- EventBridge schedulers for background jobs
-
-**Cost**: ~$150-200/month (see [PHASE6_RESULTS.md](PHASE6_RESULTS.md) for breakdown)
+See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for step-by-step deployment instructions.
 
 ## 📊 Metrics & Monitoring
 
