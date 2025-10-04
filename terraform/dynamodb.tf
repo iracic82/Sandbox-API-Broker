@@ -11,7 +11,8 @@ resource "aws_dynamodb_table" "sandbox_pool" {
   # read_capacity  = var.ddb_read_capacity
   # write_capacity = var.ddb_write_capacity
 
-  hash_key = "PK"
+  hash_key  = "PK"
+  range_key = "SK"
 
   # Primary Key
   attribute {
@@ -19,34 +20,37 @@ resource "aws_dynamodb_table" "sandbox_pool" {
     type = "S"
   }
 
-  # GSI1: StatusIndex (status + sandbox_id)
   attribute {
-    name = "GSI1PK"
+    name = "SK"
+    type = "S"
+  }
+
+  # GSI attributes (using actual data attributes, not projection keys)
+  attribute {
+    name = "status"
     type = "S"
   }
 
   attribute {
-    name = "GSI1SK"
+    name = "allocated_at"
+    type = "N"
+  }
+
+  attribute {
+    name = "allocated_to_track"
     type = "S"
   }
 
-  # GSI2: TrackIndex (allocated_to_track)
   attribute {
-    name = "GSI2PK"
-    type = "S"
-  }
-
-  # GSI3: IdempotencyIndex (idempotency_key)
-  attribute {
-    name = "GSI3PK"
+    name = "idempotency_key"
     type = "S"
   }
 
   # GSI1: StatusIndex - Query sandboxes by status
   global_secondary_index {
     name            = "StatusIndex"
-    hash_key        = "GSI1PK"
-    range_key       = "GSI1SK"
+    hash_key        = "status"
+    range_key       = "allocated_at"
     projection_type = "ALL"
 
     # Only needed for PROVISIONED billing mode
@@ -57,7 +61,8 @@ resource "aws_dynamodb_table" "sandbox_pool" {
   # GSI2: TrackIndex - Query sandboxes by track_id
   global_secondary_index {
     name            = "TrackIndex"
-    hash_key        = "GSI2PK"
+    hash_key        = "allocated_to_track"
+    range_key       = "allocated_at"
     projection_type = "ALL"
 
     # Only needed for PROVISIONED billing mode
@@ -68,7 +73,8 @@ resource "aws_dynamodb_table" "sandbox_pool" {
   # GSI3: IdempotencyIndex - Query by idempotency key
   global_secondary_index {
     name            = "IdempotencyIndex"
-    hash_key        = "GSI3PK"
+    hash_key        = "idempotency_key"
+    range_key       = "allocated_at"
     projection_type = "ALL"
 
     # Only needed for PROVISIONED billing mode
