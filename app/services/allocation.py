@@ -6,6 +6,13 @@ from typing import Optional
 from app.core.config import settings
 from app.db.dynamodb import db_client
 from app.models.sandbox import Sandbox, SandboxStatus
+from app.core.metrics import (
+    allocate_total,
+    allocate_idempotent_hits,
+    allocate_conflicts,
+    deletion_marked_total,
+    allocation_latency,
+)
 
 
 class AllocationError(Exception):
@@ -56,46 +63,69 @@ class AllocationService:
         Raises:
             NoSandboxesAvailableError: No sandboxes available after retries
         """
-        current_time = int(time.time())
+        start_time = time.time()
+        current_time = int(start_time)
         idem_key = idempotency_key or track_id
 
-        # Step 1: Check for existing allocation (idempotency)
-        existing = await self.db.find_allocation_by_idempotency_key(idem_key)
-        if existing and not existing.is_expired(current_time, settings.grace_period_minutes):
-            # Return existing allocation if still valid
-            return existing
+        try:
+            # Step 1: Check for existing allocation (idempotency)
+            existing = await self.db.find_allocation_by_idempotency_key(idem_key)
+            if existing and not existing.is_expired(current_time, settings.grace_period_minutes):
+                # Return existing allocation if still valid
+                allocate_idempotent_hits.inc()
+                allocate_total.labels(outcome="idempotent").inc()
+                allocation_latency.labels(outcome="idempotent").observe(time.time() - start_time)
+                return existing
 
-        # Step 2: K-candidate fan-out strategy
-        candidates = await self.db.get_available_candidates(k=settings.k_candidates)
+            # Step 2: K-candidate fan-out strategy
+            candidates = await self.db.get_available_candidates(k=settings.k_candidates)
 
-        if not candidates:
-            raise NoSandboxesAvailableError("No sandboxes available in pool")
+            if not candidates:
+                allocate_total.labels(outcome="no_sandboxes").inc()
+                allocation_latency.labels(outcome="no_sandboxes").observe(time.time() - start_time)
+                raise NoSandboxesAvailableError("No sandboxes available in pool")
 
-        # Step 3: Try to allocate with exponential backoff
-        max_attempts = len(candidates)
+            # Step 3: Try to allocate with exponential backoff
+            max_attempts = len(candidates)
+            conflicts = 0
 
-        for attempt, candidate in enumerate(candidates):
-            sandbox = await self.db.atomic_allocate(
-                sandbox_id=candidate.sandbox_id,
-                track_id=track_id,
-                idempotency_key=idem_key,
-                current_time=current_time,
+            for attempt, candidate in enumerate(candidates):
+                sandbox = await self.db.atomic_allocate(
+                    sandbox_id=candidate.sandbox_id,
+                    track_id=track_id,
+                    idempotency_key=idem_key,
+                    current_time=current_time,
+                )
+
+                if sandbox:
+                    # Success! Return allocated sandbox
+                    allocate_total.labels(outcome="success").inc()
+                    allocation_latency.labels(outcome="success").observe(time.time() - start_time)
+                    if conflicts > 0:
+                        allocate_conflicts.inc(conflicts)
+                    return sandbox
+
+                # Conflict - another track claimed this sandbox
+                conflicts += 1
+
+                # Apply jitter backoff before next attempt
+                if attempt < max_attempts - 1:
+                    jitter = random.uniform(0, min(2 ** attempt * settings.backoff_base_ms, settings.backoff_max_ms))
+                    await self._sleep_ms(jitter)
+
+            # Exhausted all candidates
+            allocate_total.labels(outcome="no_sandboxes").inc()
+            allocate_conflicts.inc(conflicts)
+            allocation_latency.labels(outcome="no_sandboxes").observe(time.time() - start_time)
+            raise NoSandboxesAvailableError(
+                f"Failed to allocate after {max_attempts} attempts (high contention)"
             )
-
-            if sandbox:
-                # Success! Return allocated sandbox
-                return sandbox
-
-            # Conflict - another track claimed this sandbox
-            # Apply jitter backoff before next attempt
-            if attempt < max_attempts - 1:
-                jitter = random.uniform(0, min(2 ** attempt * settings.backoff_base_ms, settings.backoff_max_ms))
-                await self._sleep_ms(jitter)
-
-        # Exhausted all candidates
-        raise NoSandboxesAvailableError(
-            f"Failed to allocate after {max_attempts} attempts (high contention)"
-        )
+        except NoSandboxesAvailableError:
+            raise
+        except Exception as e:
+            allocate_total.labels(outcome="error").inc()
+            allocation_latency.labels(outcome="error").observe(time.time() - start_time)
+            raise
 
     async def mark_for_deletion(
         self,
@@ -121,36 +151,47 @@ class AllocationService:
         # Calculate max valid expiry time (allocated_at must be > this to be valid)
         max_expiry_time = current_time - settings.lab_duration_seconds
 
-        sandbox = await self.db.mark_for_deletion(
-            sandbox_id=sandbox_id,
-            track_id=track_id,
-            current_time=current_time,
-            max_expiry_time=max_expiry_time,
-        )
-
-        if not sandbox:
-            # Condition failed - check why
-            existing = await self.db.get_sandbox(sandbox_id)
-
-            if not existing:
-                raise NotSandboxOwnerError(f"Sandbox {sandbox_id} not found")
-
-            if existing.status != SandboxStatus.ALLOCATED:
-                raise NotSandboxOwnerError(
-                    f"Sandbox {sandbox_id} status is {existing.status.value}, not allocated"
-                )
-
-            if existing.allocated_to_track != track_id:
-                raise NotSandboxOwnerError(
-                    f"Sandbox {sandbox_id} is owned by {existing.allocated_to_track}, not {track_id}"
-                )
-
-            # Must be expired
-            raise AllocationExpiredError(
-                f"Sandbox {sandbox_id} allocation expired (allocated at {existing.allocated_at})"
+        try:
+            sandbox = await self.db.mark_for_deletion(
+                sandbox_id=sandbox_id,
+                track_id=track_id,
+                current_time=current_time,
+                max_expiry_time=max_expiry_time,
             )
 
-        return sandbox
+            if not sandbox:
+                # Condition failed - check why
+                existing = await self.db.get_sandbox(sandbox_id)
+
+                if not existing:
+                    deletion_marked_total.labels(outcome="not_found").inc()
+                    raise NotSandboxOwnerError(f"Sandbox {sandbox_id} not found")
+
+                if existing.status != SandboxStatus.ALLOCATED:
+                    deletion_marked_total.labels(outcome="not_allocated").inc()
+                    raise NotSandboxOwnerError(
+                        f"Sandbox {sandbox_id} status is {existing.status.value}, not allocated"
+                    )
+
+                if existing.allocated_to_track != track_id:
+                    deletion_marked_total.labels(outcome="not_owner").inc()
+                    raise NotSandboxOwnerError(
+                        f"Sandbox {sandbox_id} is owned by {existing.allocated_to_track}, not {track_id}"
+                    )
+
+                # Must be expired
+                deletion_marked_total.labels(outcome="expired").inc()
+                raise AllocationExpiredError(
+                    f"Sandbox {sandbox_id} allocation expired (allocated at {existing.allocated_at})"
+                )
+
+            deletion_marked_total.labels(outcome="success").inc()
+            return sandbox
+        except (NotSandboxOwnerError, AllocationExpiredError):
+            raise
+        except Exception as e:
+            deletion_marked_total.labels(outcome="error").inc()
+            raise
 
     async def get_sandbox(self, sandbox_id: str, track_id: str) -> Sandbox:
         """

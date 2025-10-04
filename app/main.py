@@ -7,7 +7,9 @@ from fastapi.exceptions import RequestValidationError
 from app.core.config import settings
 from app.api.routes import router
 from app.api.admin_routes import router as admin_router
+from app.api.metrics_routes import router as metrics_router
 from app.middleware.logging import LoggingMiddleware
+from app.jobs import start_background_jobs, stop_background_jobs
 from app import __version__
 
 
@@ -60,6 +62,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 # Include routers
 app.include_router(router, prefix=settings.api_base_path, tags=["sandboxes"])
 app.include_router(admin_router, prefix=settings.api_base_path, tags=["admin"])
+app.include_router(metrics_router, tags=["observability"])
 
 
 # Root endpoint
@@ -83,11 +86,19 @@ async def startup_event():
     if settings.ddb_endpoint_url:
         print(f"🔧 Using local DynamoDB: {settings.ddb_endpoint_url}")
 
+    # Start background jobs
+    print(f"⏱️  Background jobs:")
+    print(f"   - Sync: every {settings.sync_interval_sec}s")
+    print(f"   - Cleanup: every {settings.cleanup_interval_sec}s")
+    print(f"   - Auto-expiry: every {settings.auto_expiry_interval_sec}s")
+    start_background_jobs()
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Run on application shutdown."""
     print("👋 Sandbox Broker API shutting down...")
+    await stop_background_jobs()
 
 
 if __name__ == "__main__":

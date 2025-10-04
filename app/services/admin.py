@@ -6,6 +6,16 @@ from app.core.config import settings
 from app.db.dynamodb import db_client
 from app.models.sandbox import Sandbox, SandboxStatus
 from app.services.eng_csp import eng_csp_service
+from app.core.metrics import (
+    sync_total,
+    sync_sandboxes_synced,
+    sync_sandboxes_stale,
+    sync_duration,
+    cleanup_total,
+    cleanup_deleted,
+    cleanup_failed,
+    cleanup_duration,
+)
 
 
 class AdminService:
@@ -68,55 +78,67 @@ class AdminService:
         """
         start_time = time.time()
 
-        # Fetch sandboxes from ENG CSP
-        eng_sandboxes = await eng_csp_service.fetch_sandboxes()
+        try:
+            # Fetch sandboxes from ENG CSP
+            eng_sandboxes = await eng_csp_service.fetch_sandboxes()
 
-        synced_count = 0
-        stale_count = 0
+            synced_count = 0
+            stale_count = 0
 
-        # Get current sandbox IDs from DynamoDB
-        current_sandboxes = await self._get_all_sandbox_ids()
+            # Get current sandbox IDs from DynamoDB
+            current_sandboxes = await self._get_all_sandbox_ids()
 
-        # Upsert active sandboxes from ENG
-        for eng_sb in eng_sandboxes:
-            sandbox = Sandbox(
-                sandbox_id=eng_sb["id"],
-                name=eng_sb.get("name", f"sandbox-{eng_sb['id']}"),
-                external_id=eng_sb.get("external_id", eng_sb["id"]),
-                status=SandboxStatus.AVAILABLE,
-                last_synced=int(time.time()),
-                created_at=eng_sb.get("created_at", int(time.time())),
-                updated_at=int(time.time()),
-            )
+            # Upsert active sandboxes from ENG
+            for eng_sb in eng_sandboxes:
+                sandbox = Sandbox(
+                    sandbox_id=eng_sb["id"],
+                    name=eng_sb.get("name", f"sandbox-{eng_sb['id']}"),
+                    external_id=eng_sb.get("external_id", eng_sb["id"]),
+                    status=SandboxStatus.AVAILABLE,
+                    last_synced=int(time.time()),
+                    created_at=eng_sb.get("created_at", int(time.time())),
+                    updated_at=int(time.time()),
+                )
 
-            # Only upsert if not allocated or pending deletion
-            existing = await self.db.get_sandbox(sandbox.sandbox_id)
-            if not existing or existing.status in [
-                SandboxStatus.AVAILABLE,
-                SandboxStatus.STALE,
-            ]:
-                await self.db.put_sandbox(sandbox)
-                synced_count += 1
+                # Only upsert if not allocated or pending deletion
+                existing = await self.db.get_sandbox(sandbox.sandbox_id)
+                if not existing or existing.status in [
+                    SandboxStatus.AVAILABLE,
+                    SandboxStatus.STALE,
+                ]:
+                    await self.db.put_sandbox(sandbox)
+                    synced_count += 1
 
-            # Remove from current set (to find missing ones)
-            current_sandboxes.discard(eng_sb["id"])
+                # Remove from current set (to find missing ones)
+                current_sandboxes.discard(eng_sb["id"])
 
-        # Mark missing sandboxes as stale (not in ENG anymore)
-        for missing_id in current_sandboxes:
-            existing = await self.db.get_sandbox(missing_id)
-            if existing and existing.status == SandboxStatus.AVAILABLE:
-                existing.status = SandboxStatus.STALE
-                existing.updated_at = int(time.time())
-                await self.db.put_sandbox(existing)
-                stale_count += 1
+            # Mark missing sandboxes as stale (not in ENG anymore)
+            for missing_id in current_sandboxes:
+                existing = await self.db.get_sandbox(missing_id)
+                if existing and existing.status == SandboxStatus.AVAILABLE:
+                    existing.status = SandboxStatus.STALE
+                    existing.updated_at = int(time.time())
+                    await self.db.put_sandbox(existing)
+                    stale_count += 1
 
-        duration_ms = int((time.time() - start_time) * 1000)
+            duration_sec = time.time() - start_time
+            duration_ms = int(duration_sec * 1000)
 
-        return {
-            "synced": synced_count,
-            "marked_stale": stale_count,
-            "duration_ms": duration_ms,
-        }
+            # Update metrics
+            sync_total.labels(outcome="success").inc()
+            sync_sandboxes_synced.inc(synced_count)
+            sync_sandboxes_stale.inc(stale_count)
+            sync_duration.observe(duration_sec)
+
+            return {
+                "synced": synced_count,
+                "marked_stale": stale_count,
+                "duration_ms": duration_ms,
+            }
+        except Exception as e:
+            sync_total.labels(outcome="error").inc()
+            sync_duration.observe(time.time() - start_time)
+            raise
 
     async def trigger_cleanup(self) -> Dict[str, Any]:
         """
@@ -127,56 +149,69 @@ class AdminService:
         """
         start_time = time.time()
 
-        # Find all pending_deletion sandboxes
-        response = self.db.table.query(
-            IndexName=settings.ddb_gsi1_name,
-            KeyConditionExpression="#status = :status",
-            ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={":status": SandboxStatus.PENDING_DELETION.value},
-        )
+        try:
+            # Find all pending_deletion sandboxes
+            response = self.db.table.query(
+                IndexName=settings.ddb_gsi1_name,
+                KeyConditionExpression="#status = :status",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={":status": SandboxStatus.PENDING_DELETION.value},
+            )
 
-        pending_sandboxes = [
-            self.db._from_item(item) for item in response.get("Items", [])
-        ]
+            pending_sandboxes = [
+                self.db._from_item(item) for item in response.get("Items", [])
+            ]
 
-        deleted_count = 0
-        failed_count = 0
+            deleted_count = 0
+            failed_count = 0
 
-        for sandbox in pending_sandboxes:
-            try:
-                # Delete from ENG CSP
-                success = await eng_csp_service.delete_sandbox(sandbox.external_id)
+            for sandbox in pending_sandboxes:
+                try:
+                    # Delete from ENG CSP
+                    success = await eng_csp_service.delete_sandbox(sandbox.external_id)
 
-                if success:
-                    # Remove from DynamoDB
-                    self.db.table.delete_item(
-                        Key={"PK": f"SBX#{sandbox.sandbox_id}", "SK": "META"}
-                    )
-                    deleted_count += 1
-                else:
-                    # Mark as failed
+                    if success:
+                        # Remove from DynamoDB
+                        self.db.table.delete_item(
+                            Key={"PK": f"SBX#{sandbox.sandbox_id}", "SK": "META"}
+                        )
+                        deleted_count += 1
+                        cleanup_deleted.inc()
+                    else:
+                        # Mark as failed
+                        sandbox.status = SandboxStatus.DELETION_FAILED
+                        sandbox.deletion_retry_count += 1
+                        sandbox.updated_at = int(time.time())
+                        await self.db.put_sandbox(sandbox)
+                        failed_count += 1
+                        cleanup_failed.inc()
+
+                except Exception as e:
+                    # Handle deletion failure
                     sandbox.status = SandboxStatus.DELETION_FAILED
                     sandbox.deletion_retry_count += 1
                     sandbox.updated_at = int(time.time())
                     await self.db.put_sandbox(sandbox)
                     failed_count += 1
+                    cleanup_failed.inc()
+                    print(f"Failed to delete {sandbox.sandbox_id}: {e}")
 
-            except Exception as e:
-                # Handle deletion failure
-                sandbox.status = SandboxStatus.DELETION_FAILED
-                sandbox.deletion_retry_count += 1
-                sandbox.updated_at = int(time.time())
-                await self.db.put_sandbox(sandbox)
-                failed_count += 1
-                print(f"Failed to delete {sandbox.sandbox_id}: {e}")
+            duration_sec = time.time() - start_time
+            duration_ms = int(duration_sec * 1000)
 
-        duration_ms = int((time.time() - start_time) * 1000)
+            # Update metrics
+            cleanup_total.labels(outcome="success").inc()
+            cleanup_duration.observe(duration_sec)
 
-        return {
-            "deleted": deleted_count,
-            "failed": failed_count,
-            "duration_ms": duration_ms,
-        }
+            return {
+                "deleted": deleted_count,
+                "failed": failed_count,
+                "duration_ms": duration_ms,
+            }
+        except Exception as e:
+            cleanup_total.labels(outcome="error").inc()
+            cleanup_duration.observe(time.time() - start_time)
+            raise
 
     async def get_stats(self) -> Dict[str, int]:
         """
