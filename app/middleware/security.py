@@ -30,8 +30,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "max-age=31536000; includeSubDomains"
         )
 
-        # Content Security Policy (restrictive for API)
-        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+        # Content Security Policy
+        # Relaxed for /docs and /openapi.json to allow Swagger UI
+        if request.url.path in ["/v1/docs", "/v1/openapi.json", "/docs", "/openapi.json"]:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "img-src 'self' data: https://fastapi.tiangolo.com; "
+                "font-src 'self' https://cdn.jsdelivr.net"
+            )
+        else:
+            # Restrictive CSP for API endpoints
+            response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
 
         # Referrer policy
         response.headers["Referrer-Policy"] = "no-referrer"
