@@ -3,6 +3,7 @@
 import httpx
 from typing import List, Dict, Any
 from app.core.config import settings
+from app.core.circuit_breaker import eng_csp_circuit_breaker, CircuitBreakerError
 
 
 class EngCspService:
@@ -24,31 +25,48 @@ class EngCspService:
         Returns:
             List of sandbox dicts with id, name, external_id, created_at
 
+        Raises:
+            CircuitBreakerError: If circuit breaker is open
+
         TODO: Replace with actual ENG CSP API call
         """
-        # Mock implementation for now
-        # In production, replace with:
-        # async with httpx.AsyncClient() as client:
-        #     response = await client.get(
-        #         f"{self.base_url}/sandbox/accounts",
-        #         headers={"Authorization": f"Bearer {self.token}"},
-        #         timeout=self.timeout
-        #     )
-        #     response.raise_for_status()
-        #     return response.json()["sandboxes"]
+        def _fetch():
+            # Mock implementation for now
+            # In production, replace with:
+            # async with httpx.AsyncClient() as client:
+            #     response = await client.get(
+            #         f"{self.base_url}/current_user/accounts",
+            #         headers={"Authorization": f"Bearer {self.token}"},
+            #         timeout=self.timeout
+            #     )
+            #     response.raise_for_status()
+            #     data = response.json()
+            #     # Filter for sandbox accounts that are active
+            #     return [
+            #         {
+            #             "id": sb["id"],
+            #             "name": sb["name"],
+            #             "external_id": sb["id"],
+            #             "created_at": sb["created_at"],
+            #         }
+            #         for sb in data.get("results", [])
+            #         if sb.get("account_type") == "sandbox" and sb.get("state") == "active"
+            #     ]
 
-        # Mock data (remove in production)
-        import time
+            # Mock data (remove in production)
+            import time
+            return [
+                {
+                    "id": f"eng-sandbox-{i}",
+                    "name": f"eng-sandbox-{i}",
+                    "external_id": f"ext-eng-{i}",
+                    "created_at": int(time.time()) - (i * 3600),
+                }
+                for i in range(1, 6)  # Mock 5 sandboxes
+            ]
 
-        return [
-            {
-                "id": f"eng-sandbox-{i}",
-                "name": f"eng-sandbox-{i}",
-                "external_id": f"ext-eng-{i}",
-                "created_at": int(time.time()) - (i * 3600),
-            }
-            for i in range(1, 6)  # Mock 5 sandboxes
-        ]
+        # Call with circuit breaker protection
+        return eng_csp_circuit_breaker.call(_fetch)
 
     async def delete_sandbox(self, external_id: str) -> bool:
         """
@@ -60,21 +78,28 @@ class EngCspService:
         Returns:
             True if successful, False otherwise
 
+        Raises:
+            CircuitBreakerError: If circuit breaker is open
+
         TODO: Replace with actual ENG CSP API call
         """
-        # Mock implementation for now
-        # In production, replace with:
-        # async with httpx.AsyncClient() as client:
-        #     response = await client.delete(
-        #         f"{self.base_url}/sandbox/accounts/{external_id}",
-        #         headers={"Authorization": f"Bearer {self.token}"},
-        #         timeout=self.timeout
-        #     )
-        #     return response.status_code in (200, 204)
+        def _delete():
+            # Mock implementation for now
+            # In production, replace with:
+            # async with httpx.AsyncClient() as client:
+            #     response = await client.delete(
+            #         f"{self.base_url}/accounts/{external_id}",
+            #         headers={"Authorization": f"Bearer {self.token}"},
+            #         timeout=self.timeout
+            #     )
+            #     return response.status_code in (200, 204)
 
-        # Mock: always succeed
-        print(f"[MOCK] Deleting sandbox from ENG CSP: {external_id}")
-        return True
+            # Mock: always succeed
+            print(f"[MOCK] Deleting sandbox from ENG CSP: {external_id}")
+            return True
+
+        # Call with circuit breaker protection
+        return eng_csp_circuit_breaker.call(_delete)
 
     async def create_sandbox(self, name: str) -> Dict[str, Any]:
         """

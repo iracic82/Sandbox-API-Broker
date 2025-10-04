@@ -4,11 +4,14 @@ import uuid
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.routes import router
 from app.api.admin_routes import router as admin_router
 from app.api.metrics_routes import router as metrics_router
 from app.middleware.logging import LoggingMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.security import SecurityHeadersMiddleware
 from app.jobs import start_background_jobs, stop_background_jobs
 from app import __version__
 
@@ -23,8 +26,21 @@ app = FastAPI(
     openapi_url=f"{settings.api_base_path}/openapi.json",
 )
 
-# Add middleware
+# Add middleware (order matters: first added = outermost layer)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware, requests_per_second=10, burst=20)
 app.add_middleware(LoggingMiddleware)
+
+# CORS configuration (restrictive for production API)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production: replace with specific origins
+    allow_credentials=False,  # No cookies for this API
+    allow_methods=["GET", "POST"],  # Only needed methods
+    allow_headers=["Authorization", "Content-Type", "X-Track-ID", "Idempotency-Key"],
+    expose_headers=["X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
+    max_age=3600,  # Cache preflight for 1 hour
+)
 
 
 # Exception handlers
