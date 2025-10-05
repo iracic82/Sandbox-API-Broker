@@ -149,3 +149,42 @@ async def get_stats(
         "stale": stats.get("stale", 0),
         "deletion_failed": stats.get("deletion_failed", 0),
     }
+
+
+@router.post(
+    "/bulk-delete",
+    responses={
+        200: {"description": "Bulk delete completed"},
+        401: {"description": "Unauthorized"},
+        403: {"description": "Admin access required"},
+    },
+)
+async def bulk_delete_sandboxes(
+    request: Request,
+    status: Optional[SandboxStatus] = Query(None, description="Delete sandboxes with this status (stale, deletion_failed)"),
+    _token: str = Depends(verify_admin_token),
+):
+    """
+    Bulk delete sandboxes from DynamoDB by status.
+
+    Admin only endpoint.
+
+    This will:
+    1. Find all sandboxes with the specified status
+    2. Delete them from DynamoDB only (NOT from CSP)
+    3. Return count of deleted items
+
+    Use cases:
+    - Clean up stale sandboxes (no longer in CSP)
+    - Remove deletion_failed sandboxes after manual CSP cleanup
+
+    Query Parameters:
+    - status: Status filter (stale, deletion_failed, etc.)
+    """
+    result = await admin_service.bulk_delete_by_status(status)
+
+    return {
+        "status": "completed",
+        "deleted": result.get("deleted", 0),
+        "duration_ms": result.get("duration_ms", 0),
+    }

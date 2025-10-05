@@ -252,6 +252,79 @@ class AdminService:
 
         return stats
 
+    async def bulk_delete_by_status(
+        self, status_filter: Optional[SandboxStatus] = None
+    ) -> Dict[str, Any]:
+        """
+        Bulk delete sandboxes from DynamoDB by status.
+
+        This ONLY deletes from DynamoDB, NOT from CSP.
+        Use this to clean up stale or failed sandboxes.
+
+        Args:
+            status_filter: Status to filter by (e.g., 'stale', 'deletion_failed')
+
+        Returns:
+            Dict with deleted count and duration
+        """
+        start_time = time.time()
+        deleted_count = 0
+
+        try:
+            # Query sandboxes by status using GSI1
+            if status_filter:
+                response = self.db.table.query(
+                    IndexName="StatusIndex",
+                    KeyConditionExpression="#status = :status",
+                    ExpressionAttributeNames={"#status": "status"},
+                    ExpressionAttributeValues={":status": status_filter.value},
+                )
+            else:
+                # If no filter, scan all (dangerous, but allowed for admin)
+                response = self.db.table.scan()
+
+            items = response.get("Items", [])
+
+            # Handle pagination
+            while "LastEvaluatedKey" in response:
+                if status_filter:
+                    response = self.db.table.query(
+                        IndexName="StatusIndex",
+                        KeyConditionExpression="#status = :status",
+                        ExpressionAttributeNames={"#status": "status"},
+                        ExpressionAttributeValues={":status": status_filter.value},
+                        ExclusiveStartKey=response["LastEvaluatedKey"],
+                    )
+                else:
+                    response = self.db.table.scan(
+                        ExclusiveStartKey=response["LastEvaluatedKey"]
+                    )
+                items.extend(response.get("Items", []))
+
+            # Delete each item
+            for item in items:
+                sandbox_id = item.get("sandbox_id")
+                if sandbox_id:
+                    # Delete directly using DynamoDB table
+                    self.db.table.delete_item(
+                        Key={
+                            "PK": f"SBX#{sandbox_id}",
+                            "SK": "META",
+                        }
+                    )
+                    deleted_count += 1
+                    print(f"Deleted sandbox {sandbox_id} from DynamoDB")
+
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            return {
+                "deleted": deleted_count,
+                "duration_ms": duration_ms,
+            }
+        except Exception as e:
+            print(f"Bulk delete failed: {e}")
+            raise
+
     async def _get_all_sandbox_ids(self) -> set:
         """Get all sandbox IDs from DynamoDB."""
         sandbox_ids = set()

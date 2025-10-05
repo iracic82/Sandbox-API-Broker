@@ -167,10 +167,10 @@ Headers:
 |------|---------|-------|
 | `app/main.py` | FastAPI app entry point, Swagger docs | 173 |
 | `app/api/routes.py` | Track endpoints (allocate, mark-for-deletion, get) | 211 |
-| `app/api/admin_routes.py` | Admin endpoints (list, stats, sync, cleanup) | 144 |
+| `app/api/admin_routes.py` | Admin endpoints (list, stats, sync, cleanup, bulk-delete) | 191 |
 | `app/api/dependencies.py` | Header extraction, authentication | 91 |
 | `app/services/allocation.py` | K-candidate allocation logic | 227 |
-| `app/services/admin.py` | Background jobs (sync, cleanup, expiry) | 290 |
+| `app/services/admin.py` | Background jobs (sync, cleanup, expiry, bulk-delete) | 355 |
 | `app/services/eng_csp.py` | ENG CSP API client with circuit breaker | 204 |
 | `app/db/dynamodb.py` | DynamoDB client, atomic operations | 291 |
 | `app/models/sandbox.py` | Sandbox domain model | 79 |

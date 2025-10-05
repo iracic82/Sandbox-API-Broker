@@ -167,6 +167,12 @@ Headers:
 POST /v1/admin/cleanup
 Headers:
   Authorization: Bearer <admin_token>
+
+# Bulk delete sandboxes by status
+POST /v1/admin/bulk-delete?status=stale
+Headers:
+  Authorization: Bearer <admin_token>
+# Use cases: Clean up stale sandboxes, remove deletion_failed after manual CSP cleanup
 ```
 
 ### Observability
