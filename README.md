@@ -110,20 +110,41 @@ See [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) for detailed implementation plan an
 POST /v1/allocate
 Headers:
   Authorization: Bearer <token>
-  X-Track-ID: <track_id>
+  X-Instruqt-Sandbox-ID: <unique_sandbox_id>     # REQUIRED - unique per student
+  X-Instruqt-Track-ID: <lab_identifier>          # OPTIONAL - for analytics/grouping
+
+  # Legacy format (backward compatible):
+  # X-Track-ID: <unique_sandbox_id>              # REQUIRED - unique per student
+
+Response:
+  {
+    "sandbox_id": "2012224",
+    "name": "sandbox-1",
+    "external_id": "af06cbf7-b07c-4c4f-bfa4-bd7dd0e2d4c3",  # Use this to connect to CSP
+    "allocated_at": 1728054123,
+    "expires_at": 1728070323
+  }
 
 # Mark sandbox for deletion
 POST /v1/sandboxes/{sandbox_id}/mark-for-deletion
 Headers:
   Authorization: Bearer <token>
-  X-Track-ID: <track_id>
+  X-Instruqt-Sandbox-ID: <unique_sandbox_id>     # REQUIRED
+  # OR X-Track-ID: <unique_sandbox_id>           # Legacy
 
 # Get sandbox details
 GET /v1/sandboxes/{sandbox_id}
 Headers:
   Authorization: Bearer <token>
-  X-Track-ID: <track_id>
+  X-Instruqt-Sandbox-ID: <unique_sandbox_id>     # REQUIRED
+  # OR X-Track-ID: <unique_sandbox_id>           # Legacy
 ```
+
+**Important Notes:**
+- `X-Instruqt-Sandbox-ID` must be the **unique Instruqt sandbox instance ID** (unique per student), NOT the lab/track identifier
+- Multiple students can run the same lab simultaneously - each gets a different sandbox
+- `X-Instruqt-Track-ID` is optional and used only for grouping/analytics in logs
+- The `external_id` in the response is the CSP UUID needed to connect to the actual sandbox
 
 ### Admin Endpoints
 ```bash

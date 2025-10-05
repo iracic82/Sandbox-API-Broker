@@ -49,13 +49,15 @@ class AllocationService:
         self,
         track_id: str,
         idempotency_key: Optional[str] = None,
+        instruqt_track_id: Optional[str] = None,
     ) -> Sandbox:
         """
-        Allocate a sandbox to a track with idempotency and retry logic.
+        Allocate a sandbox to an Instruqt sandbox instance with idempotency and retry logic.
 
         Args:
-            track_id: The Instruqt track ID
+            track_id: The unique Instruqt sandbox ID (per-student instance, not lab identifier)
             idempotency_key: Optional idempotency key (uses track_id if not provided)
+            instruqt_track_id: Optional lab/track identifier (for grouping and analytics)
 
         Returns:
             Allocated Sandbox

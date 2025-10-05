@@ -16,8 +16,10 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
 
-        # Extract track ID from header if present
-        track_id = request.headers.get("X-Track-ID")
+        # Extract sandbox and track IDs from headers if present
+        # Support both new (X-Instruqt-Sandbox-ID) and legacy (X-Track-ID) headers
+        instruqt_sandbox_id = request.headers.get("X-Instruqt-Sandbox-ID") or request.headers.get("X-Track-ID")
+        instruqt_track_id = request.headers.get("X-Instruqt-Track-ID")
 
         # Start timer
         start_time = time.time()
@@ -32,15 +34,21 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             # Determine outcome
             outcome = "success" if response.status_code < 400 else "failure"
 
-            # Log request
-            log_request(
-                request_id=request_id,
-                track_id=track_id,
-                action=f"{request.method} {request.url.path}",
-                outcome=outcome,
-                latency_ms=latency_ms,
-                message=f"{request.method} {request.url.path} - {response.status_code}",
-            )
+            # Log request with both sandbox and track IDs
+            log_data = {
+                "request_id": request_id,
+                "track_id": instruqt_sandbox_id,  # Keep 'track_id' for backward compatibility in logs
+                "action": f"{request.method} {request.url.path}",
+                "outcome": outcome,
+                "latency_ms": latency_ms,
+                "message": f"{request.method} {request.url.path} - {response.status_code}",
+            }
+
+            # Add instruqt_track_id if present (for analytics)
+            if instruqt_track_id:
+                log_data["instruqt_track_id"] = instruqt_track_id
+
+            log_request(**log_data)
 
             # Add request ID to response headers
             response.headers["X-Request-ID"] = request_id
@@ -51,15 +59,21 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             # Calculate latency
             latency_ms = int((time.time() - start_time) * 1000)
 
-            # Log error
-            log_request(
-                request_id=request_id,
-                track_id=track_id,
-                action=f"{request.method} {request.url.path}",
-                outcome="error",
-                latency_ms=latency_ms,
-                error=str(e),
-                message=f"{request.method} {request.url.path} - Exception: {e}",
-            )
+            # Log error with both sandbox and track IDs
+            log_data = {
+                "request_id": request_id,
+                "track_id": instruqt_sandbox_id,  # Keep 'track_id' for backward compatibility in logs
+                "action": f"{request.method} {request.url.path}",
+                "outcome": "error",
+                "latency_ms": latency_ms,
+                "error": str(e),
+                "message": f"{request.method} {request.url.path} - Exception: {e}",
+            }
+
+            # Add instruqt_track_id if present (for analytics)
+            if instruqt_track_id:
+                log_data["instruqt_track_id"] = instruqt_track_id
+
+            log_request(**log_data)
 
             raise

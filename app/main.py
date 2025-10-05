@@ -22,24 +22,25 @@ app = FastAPI(
     description="""
 ## High-Concurrency Sandbox Allocation Service
 
-Production-grade API for allocating pre-created CSP sandboxes to Instruqt tracks with zero double-allocations.
+Production-grade API for allocating pre-created CSP sandboxes to Instruqt students with zero double-allocations.
 
 ### Key Features
 
+* **Multi-Student Support**: Multiple students can run the same lab simultaneously
 * **Atomic Allocation**: K-candidate strategy with conditional writes
-* **Idempotency**: Safe retries via X-Track-ID header
+* **Idempotency**: Safe retries via unique sandbox ID
 * **Auto-Expiry**: Automatic cleanup after 4.5 hours
 * **Circuit Breaker**: Protection against CSP API failures
 * **Observability**: Prometheus metrics, structured logging
-* **Security**: Rate limiting, OWASP headers, authentication
+* **Security**: Rate limiting, OWASP headers, authentication, WAF protection
 
 ### Workflow
 
-1. **Allocate**: Track requests sandbox via POST /v1/allocate
+1. **Allocate**: Instruqt sandbox requests CSP sandbox via POST /v1/allocate
 2. **Use**: Student uses sandbox for lab (up to 4 hours)
-3. **Mark for Deletion**: Track calls POST /v1/sandboxes/{id}/mark-for-deletion when student stops
+3. **Mark for Deletion**: Instruqt calls POST /v1/sandboxes/{id}/mark-for-deletion when student stops
 4. **Cleanup**: Background job deletes from CSP within ~5 minutes
-5. **Safety Net**: Auto-expiry after 4.5h if track crashes
+5. **Safety Net**: Auto-expiry after 4.5h if Instruqt crashes
 
 ### Authentication
 
@@ -48,6 +49,17 @@ All endpoints require Bearer token authentication:
 - **Admin Endpoints**: Use `BROKER_ADMIN_TOKEN`
 
 Example: `Authorization: Bearer your_token_here`
+
+### API Headers (IMPORTANT)
+
+**Required Header (choose one):**
+- `X-Instruqt-Sandbox-ID: <unique_sandbox_id>` (preferred) - Unique per student instance
+- `X-Track-ID: <unique_sandbox_id>` (legacy) - Backward compatible
+
+**Optional Header:**
+- `X-Instruqt-Track-ID: <lab_name>` - Lab/track identifier for analytics only
+
+⚠️ **Critical:** The sandbox ID must be unique per student, NOT per lab. Multiple students running the same lab must each send different sandbox IDs.
     """,
     version=__version__,
     docs_url=f"{settings.api_base_path}/docs",
