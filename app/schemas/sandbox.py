@@ -29,6 +29,7 @@ class SandboxResponse(BaseModel):
     allocated_to_track: Optional[str] = Field(None, description="Track ID if allocated")
     allocated_at: Optional[int] = Field(None, description="Unix timestamp of allocation")
     expires_at: Optional[int] = Field(None, description="Unix timestamp when allocation expires")
+    track_name: Optional[str] = Field(None, description="Lab/track name (optional)")
 
     class Config:
         from_attributes = True

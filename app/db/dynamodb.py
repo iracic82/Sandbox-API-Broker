@@ -58,6 +58,8 @@ class DynamoDBClient:
             item["last_synced"] = sandbox.last_synced
         if sandbox.idempotency_key:
             item["idempotency_key"] = sandbox.idempotency_key
+        if sandbox.track_name:
+            item["track_name"] = sandbox.track_name
         if sandbox.created_at:
             item["created_at"] = sandbox.created_at
         if sandbox.updated_at:
@@ -79,6 +81,7 @@ class DynamoDBClient:
             deletion_retry_count=int(item.get("deletion_retry_count", 0)),
             last_synced=int(item["last_synced"]) if item.get("last_synced") else None,
             idempotency_key=item.get("idempotency_key"),
+            track_name=item.get("track_name"),
             created_at=int(item["created_at"]) if item.get("created_at") else None,
             updated_at=int(item["updated_at"]) if item.get("updated_at") else None,
         )
@@ -118,30 +121,40 @@ class DynamoDBClient:
         track_id: str,
         idempotency_key: str,
         current_time: int,
+        track_name: Optional[str] = None,
     ) -> Optional[Sandbox]:
         """
         Atomically allocate sandbox using conditional write.
         Returns Sandbox if successful, None if condition failed.
         """
         try:
+            # Build update expression dynamically based on whether track_name is provided
+            update_expr = """
+                SET #status = :allocated,
+                    allocated_to_track = :track_id,
+                    allocated_at = :now,
+                    idempotency_key = :idem_key,
+                    updated_at = :now
+            """
+            expr_values = {
+                ":allocated": SandboxStatus.ALLOCATED.value,
+                ":available": SandboxStatus.AVAILABLE.value,
+                ":track_id": track_id,
+                ":now": current_time,
+                ":idem_key": idempotency_key,
+            }
+
+            # Add track_name if provided
+            if track_name:
+                update_expr += ", track_name = :track_name"
+                expr_values[":track_name"] = track_name
+
             response = self.table.update_item(
                 Key={"PK": f"SBX#{sandbox_id}", "SK": "META"},
-                UpdateExpression="""
-                    SET #status = :allocated,
-                        allocated_to_track = :track_id,
-                        allocated_at = :now,
-                        idempotency_key = :idem_key,
-                        updated_at = :now
-                """,
+                UpdateExpression=update_expr,
                 ConditionExpression="attribute_exists(PK) AND #status = :available",
                 ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={
-                    ":allocated": SandboxStatus.ALLOCATED.value,
-                    ":available": SandboxStatus.AVAILABLE.value,
-                    ":track_id": track_id,
-                    ":now": current_time,
-                    ":idem_key": idempotency_key,
-                },
+                ExpressionAttributeValues=expr_values,
                 ReturnValues="ALL_NEW",
             )
 

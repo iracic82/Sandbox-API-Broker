@@ -31,6 +31,7 @@ class Sandbox:
         deletion_retry_count: int = 0,
         last_synced: Optional[int] = None,
         idempotency_key: Optional[str] = None,
+        track_name: Optional[str] = None,
         created_at: Optional[int] = None,
         updated_at: Optional[int] = None,
     ):
@@ -45,6 +46,7 @@ class Sandbox:
         self.deletion_retry_count = deletion_retry_count
         self.last_synced = last_synced
         self.idempotency_key = idempotency_key
+        self.track_name = track_name
         self.created_at = created_at
         self.updated_at = updated_at
 
@@ -84,6 +86,7 @@ class Sandbox:
             "deletion_retry_count": self.deletion_retry_count,
             "last_synced": self.last_synced,
             "idempotency_key": self.idempotency_key,
+            "track_name": self.track_name,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "expires_at": self.expires_at,

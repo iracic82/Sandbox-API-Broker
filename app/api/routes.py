@@ -185,6 +185,7 @@ async def get_sandbox(
             allocated_to_track=sandbox.allocated_to_track,
             allocated_at=sandbox.allocated_at,
             expires_at=sandbox.expires_at,
+            track_name=sandbox.track_name,
         )
 
     except NotSandboxOwnerError as e:

@@ -29,8 +29,10 @@ python3 instruqt_broker_allocation.py
 **Environment Variables:**
 - `BROKER_API_TOKEN` (required) - Your broker API token
 - `INSTRUQT_PARTICIPANT_ID` (auto) - Unique per student, provided by Instruqt
-- `INSTRUQT_TRACK_SLUG` (auto) - Lab identifier, provided by Instruqt
+- `INSTRUQT_TRACK_SLUG` (auto) - Lab identifier, provided by Instruqt (saved as `track_name` for analytics)
 - `BROKER_API_URL` (optional) - Default: production URL
+
+> **Note:** The lab identifier (`INSTRUQT_TRACK_SLUG`) is optional but recommended - it's saved to the broker for analytics and allows you to query "which sandboxes are allocated to lab X".
 
 **Output Files:**
 - `sandbox_id.txt` - Broker's internal sandbox ID

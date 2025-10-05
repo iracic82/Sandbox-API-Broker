@@ -97,6 +97,7 @@ class AllocationService:
                     track_id=track_id,
                     idempotency_key=idem_key,
                     current_time=current_time,
+                    track_name=instruqt_track_id,
                 )
 
                 if sandbox:
