@@ -1,8 +1,71 @@
-# Session Summary - Production Complete with Multi-Student Support
+# Session Summary - Production Complete with Multi-Student Support & Analytics
 
-## 📋 Latest Updates (2025-10-05)
+## 📋 Latest Session (2025-10-05 Evening) - Track Name Analytics Feature
 
-### ✅ Bulk Delete Admin Endpoint (NEW)
+### ✅ Track Name Field for Lab Analytics (NEW)
+**Problem**: System tracked student IDs but not lab/track names - couldn't answer "which sandboxes are allocated to lab X?"
+
+**Solution**: Added optional `track_name` field to store lab identifier from `X-Instruqt-Track-ID` header.
+
+**Implementation**:
+- Added `track_name` field to Sandbox model (`app/models/sandbox.py`)
+- Updated DynamoDB client to save/load track_name (`app/db/dynamodb.py`)
+- Modified `atomic_allocate()` to accept optional `track_name` parameter
+- Updated allocation service to pass `X-Instruqt-Track-ID` value as `track_name`
+- Added `track_name` to all API response schemas (`app/schemas/sandbox.py`)
+- Updated admin and sandbox endpoints to return `track_name` in responses
+
+**Key Behavior**:
+- **With `X-Instruqt-Track-ID` header**: `track_name` field exists in DynamoDB with value (e.g., "intro-to-nios9")
+- **Without header**: `track_name` field does NOT exist in DynamoDB (efficient - no storage waste)
+- API responses return `track_name: null` when field is missing
+- Fully backward compatible - system works with or without the field
+
+**Testing**:
+- ✅ Allocated sandbox WITH header → track_name saved: "advanced-nios-lab"
+- ✅ Allocated sandbox WITHOUT header → track_name field absent from DynamoDB
+- ✅ Verified in production DynamoDB table
+- ✅ Confirmed API responses include track_name field
+
+**Documentation Updates**:
+- ✅ `DATABASE_SCHEMA.md` - Added track_name to conditional attributes, updated ALLOCATED example
+- ✅ `README.md` - Mentioned track_name storage for analytics
+- ✅ `examples/README.md` - Documented track_name in Instruqt integration
+- ✅ Swagger/OpenAPI - Auto-generated from Pydantic schemas
+
+**Deployment**:
+- Built Docker image with linux/amd64 platform
+- Pushed to ECR: `905418046272.dkr.ecr.eu-central-1.amazonaws.com/sandbox-broker-api@sha256:1a9e1d7081db...`
+- Registered ECS task definition revision 3
+- Deployed to `sandbox-broker-cluster` service (2 tasks)
+- ✅ Production verified and tested
+
+**Files Modified**:
+- `app/models/sandbox.py` - Added track_name field (94 lines)
+- `app/schemas/sandbox.py` - Added track_name to response schema (86 lines)
+- `app/db/dynamodb.py` - Save/load track_name (291 lines)
+- `app/services/allocation.py` - Pass track_name to atomic_allocate (227 lines)
+- `app/api/routes.py` - Return track_name in responses (211 lines)
+- `app/api/admin_routes.py` - Return track_name in admin responses (191 lines)
+- `examples/README.md` - Documented track_name usage
+- `DATABASE_SCHEMA.md` - Updated schema documentation
+- `README.md` - Updated API documentation
+
+**Commits**:
+- `95a07f3` - Add track_name field to store lab/track identifier
+- `7226037` - Update DATABASE_SCHEMA.md to document track_name field
+- `3a369d3` - Update README to mention track_name storage for analytics
+
+**Use Cases Enabled**:
+- Query "which sandboxes are allocated to intro-to-nios9 lab"
+- Analytics on lab usage patterns
+- Better visibility into sandbox allocation by lab/track
+
+---
+
+## 📋 Earlier Updates (2025-10-05)
+
+### ✅ Bulk Delete Admin Endpoint
 **Problem**: Stale sandboxes (no longer in CSP) remained in DynamoDB, cluttering the database.
 
 **Solution**: Added `POST /v1/admin/bulk-delete` endpoint to clean up sandboxes by status.
@@ -101,6 +164,7 @@
 - [x] Updated all 3 endpoints (allocate, mark-for-deletion, get)
 - [x] 3 new unit tests for multi-student scenarios
 - [x] Load test verified: Multiple students, same lab → different sandboxes ✅
+- [x] **Track Name Analytics**: Optional `track_name` field stores lab identifier for analytics ✅
 
 ---
 
@@ -160,6 +224,6 @@
 
 ---
 
-**Version**: 1.1.0 (Multi-Student Support + Bulk Delete)
-**Last Updated**: 2025-10-05
+**Version**: 1.2.0 (Multi-Student Support + Bulk Delete + Track Name Analytics)
+**Last Updated**: 2025-10-05 Evening
 **Owner**: Igor Racic
