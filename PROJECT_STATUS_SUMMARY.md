@@ -330,6 +330,17 @@ curl -X POST https://api-sandbox-broker.highvelocitynetworking.com/v1/admin/sync
 - **Verify**: https://api-sandbox-broker.highvelocitynetworking.com/v1/docs
 - **Fallback**: Use `/v1/openapi.json` with external tool
 
+### Load Tests Getting 403 Forbidden
+- **Cause**: AWS WAF rate limiting (2000 req/5min per IP)
+- **Symptom**: High failure rate when running k6 from single machine
+- **Expected**: WAF is protecting the API from DDoS attacks
+- **Solutions**:
+  - Temporarily disable WAF during load tests
+  - Whitelist your IP in WAF rules
+  - Use distributed load testing (k6 cloud)
+  - Reduce VUs to stay under limit (50 works well)
+- **Production Impact**: None - each real user has different IP with own limit
+
 ---
 
 ## 📞 Support & Links

@@ -253,6 +253,23 @@ python tests/load/verify_allocations.py --region eu-central-1
 python tests/load/seed_dynamodb.py --cleanup --region eu-central-1
 ```
 
+**⚠️ Important: AWS WAF Rate Limiting During Load Tests**
+
+When running load tests from a single IP address, you may hit the AWS WAF rate limit (2000 requests per 5 minutes per IP). This will cause 403 Forbidden errors and is **expected behavior** - the WAF is protecting your API from abuse.
+
+**Symptoms:**
+- High percentage of 403 Forbidden responses during load tests
+- Requests succeed initially, then get blocked
+- 5-minute cooldown period after hitting the limit
+
+**Solutions for load testing:**
+1. **Temporarily disable WAF rate limiting** (not recommended for production)
+2. **Whitelist your IP** in WAF rules during testing
+3. **Use distributed load testing** (k6 cloud, AWS distributed load testing)
+4. **Reduce concurrency** to stay under the limit (e.g., 50 VUs instead of 100)
+
+**In production:** Each real user comes from a different IP address, so each gets their own 2000 req/5min allowance. This won't impact normal operations.
+
 **Test Coverage**:
 - ✅ Sandbox model validation
 - ✅ DynamoDB client operations (atomic allocation, conditional writes)

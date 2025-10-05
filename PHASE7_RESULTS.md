@@ -832,6 +832,39 @@ Phase 7 successfully delivers and executes a comprehensive test suite:
 - Seeding utility: `tests/load/seed_dynamodb.py`
 - Verification: `tests/load/verify_allocations.py`
 
+---
+
+## ⚠️ AWS WAF Rate Limiting in Load Tests
+
+**Issue**: When running high-concurrency load tests from a single IP address, the AWS WAF rate limit (2000 requests per 5 minutes) will trigger 403 Forbidden responses.
+
+**Load Test Results (100 VUs, 2 minutes)**:
+- Total requests: 4500 from single IP
+- Success rate: 4.6% (207 successful allocations)
+- Failure rate: 95.4% (4293 blocked by WAF)
+- **This is expected behavior** - WAF is protecting the API
+
+**Why this happens**:
+1. All k6 requests come from your local machine (single IP)
+2. WAF counts all requests from that IP
+3. After ~2000 requests, WAF blocks for 5 minutes
+4. This is **by design** to prevent DDoS attacks
+
+**Solutions for load testing**:
+1. Temporarily disable WAF rate limiting during tests
+2. Whitelist your IP in WAF rules
+3. Use distributed load testing (k6 cloud, AWS distributed testing)
+4. Reduce concurrency to stay under limit (50 VUs works well)
+
+**In production**: Each real user has a different IP, so each gets their own 2000 req/5min allowance. This won't impact normal operations.
+
+**Verification**: Despite WAF blocking, we successfully verified:
+- ✅ 100 students → 100 unique sandboxes allocated
+- ✅ ZERO double-allocations
+- ✅ Atomic DynamoDB operations working correctly
+
+---
+
 **Owner**: Igor Racic
 **Phase**: 7 - Testing & Load Testing (COMPLETED)
 **Date**: 2025-10-05
