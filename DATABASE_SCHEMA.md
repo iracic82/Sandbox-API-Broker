@@ -26,7 +26,8 @@
 #### Conditional Attributes (Present Based on State)
 | Attribute | Type | When Present | Description |
 |-----------|------|--------------|-------------|
-| `allocated_to_track` | String | When allocated | Track ID that owns sandbox |
+| `allocated_to_track` | String | When allocated | Student/sandbox ID that owns sandbox |
+| `track_name` | String | When allocated (optional) | Lab/track name for analytics (e.g., "intro-to-nios9") |
 | `idempotency_key` | String | When allocated | Deduplication key (X-Track-ID) |
 | `deletion_requested_at` | Number | When pending_deletion | Unix timestamp of deletion request |
 | `last_synced` | Number | After sync | Unix timestamp of last ENG sync |
@@ -124,8 +125,9 @@ response = table.query(
   "lab_duration_hours": 4,
   "deletion_retry_count": 0,
   "allocated_at": 1759567084,
-  "allocated_to_track": "track-123",
-  "idempotency_key": "track-123",
+  "allocated_to_track": "test-student-123456",
+  "track_name": "intro-to-nios9",
+  "idempotency_key": "test-student-123456",
   "created_at": 1759567084,
   "updated_at": 1759567084
 }
@@ -133,8 +135,9 @@ response = table.query(
 
 **Key Points**:
 - `allocated_at` = current timestamp (for expiry calculation)
-- `allocated_to_track` = owning track ID
-- `idempotency_key` = X-Track-ID header value
+- `allocated_to_track` = student/sandbox ID (X-Instruqt-Sandbox-ID header)
+- `track_name` = lab/track name (X-Instruqt-Track-ID header, optional)
+- `idempotency_key` = deduplication key (defaults to allocated_to_track)
 - Can be queried via GSI2 (TrackIndex) or GSI3 (IdempotencyIndex)
 
 ### 3. PENDING_DELETION (After POST /mark-for-deletion)
