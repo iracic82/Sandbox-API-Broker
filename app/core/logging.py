@@ -35,6 +35,8 @@ class JSONFormatter(logging.Formatter):
             log_data["latency_ms"] = record.latency_ms
         if hasattr(record, "error"):
             log_data["error"] = record.error
+        if hasattr(record, "instruqt_track_id"):
+            log_data["instruqt_track_id"] = record.instruqt_track_id
 
         # Add exception info if present
         if record.exc_info:
@@ -83,19 +85,21 @@ def log_request(
     latency_ms: int = None,
     error: str = None,
     message: str = None,
+    instruqt_track_id: str = None,
 ):
     """
     Log structured request information.
 
     Args:
         request_id: Unique request identifier
-        track_id: Track ID if applicable
+        track_id: Track ID if applicable (Instruqt sandbox ID)
         sandbox_id: Sandbox ID if applicable
         action: Action performed (allocate, delete, sync, etc.)
         outcome: Outcome (success, failure, conflict, etc.)
         latency_ms: Request latency in milliseconds
         error: Error message if failed
         message: Log message
+        instruqt_track_id: Optional Instruqt track/lab ID for analytics
     """
     extra = {
         "request_id": request_id,
@@ -113,6 +117,8 @@ def log_request(
         extra["latency_ms"] = latency_ms
     if error:
         extra["error"] = error
+    if instruqt_track_id:
+        extra["instruqt_track_id"] = instruqt_track_id
 
     if outcome == "failure" or error:
         logger.error(message or f"Request failed: {action}", extra=extra)
