@@ -143,7 +143,7 @@ Headers:
 **Important Notes:**
 - `X-Instruqt-Sandbox-ID` must be the **unique Instruqt sandbox instance ID** (unique per student), NOT the lab/track identifier
 - Multiple students can run the same lab simultaneously - each gets a different sandbox
-- `X-Instruqt-Track-ID` is optional and used only for grouping/analytics in logs
+- `X-Instruqt-Track-ID` is optional - stored as `track_name` for analytics (allows querying "which sandboxes are for lab X")
 - The `external_id` in the response is the CSP UUID needed to connect to the actual sandbox
 
 ### Admin Endpoints
