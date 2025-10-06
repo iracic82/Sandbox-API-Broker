@@ -204,16 +204,3 @@ async def get_sandbox(
                 "request_id": request_id,
             },
         )
-
-
-@router.get("/healthz")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy"}
-
-
-@router.get("/readyz")
-async def readiness_check():
-    """Readiness check endpoint."""
-    # TODO: Add DynamoDB connectivity check
-    return {"status": "ready"}

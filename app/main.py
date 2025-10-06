@@ -137,10 +137,10 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Include routers
-app.include_router(router, prefix=settings.api_base_path, tags=["sandboxes"])
-app.include_router(admin_router, prefix=settings.api_base_path, tags=["admin"])
-app.include_router(metrics_router, tags=["observability"])
+# Include routers (tags already defined in router definitions)
+app.include_router(router, prefix=settings.api_base_path)
+app.include_router(admin_router, prefix=settings.api_base_path)
+app.include_router(metrics_router)
 
 
 # Root endpoint

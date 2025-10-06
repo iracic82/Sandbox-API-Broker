@@ -222,16 +222,53 @@ If the same student makes multiple allocation requests, they get the **same sand
 
 ## Testing
 
-### Test Allocation Locally
+### Quick Test (Automated Script)
+
+The fastest way to test the allocation:
+
+```bash
+# Get your API token from AWS Secrets Manager
+export BROKER_API_TOKEN=$(aws secretsmanager get-secret-value \
+  --secret-id sandbox-broker-broker-api-token-20251004124001695200000001 \
+  --region eu-central-1 --profile okta-sso \
+  --query SecretString --output text)
+
+# Run the test script
+./test_allocation.sh
+```
+
+**What it does:**
+1. Simulates Instruqt environment (generates test student ID)
+2. Calls the allocation API
+3. Shows all generated files and their contents
+4. Provides cleanup command
+
+**Output files created:**
+- `sandbox_id.txt` - Broker's internal sandbox ID (2012244)
+- `external_id.txt` - CSP UUID to connect to the sandbox (8ce6e4ed-ec1f-40f4-8340-91f20f4d26aa)
+- `sandbox_name.txt` - CSP tenant name (yfu3kuhgesdm)
+- `sandbox_env.sh` - Sourceable shell script with env vars
+
+### Manual Test - Allocation
 ```bash
 export BROKER_API_TOKEN="<your_token>"
 export INSTRUQT_PARTICIPANT_ID="test-student-123"
 export INSTRUQT_TRACK_SLUG="test-lab"
 
 python3 instruqt_broker_allocation.py
+
+# View the allocated sandbox details
+cat sandbox_id.txt      # Broker ID: 2012244
+cat external_id.txt     # CSP UUID: 8ce6e4ed-ec1f-40f4-8340-91f20f4d26aa
+cat sandbox_name.txt    # Tenant name: yfu3kuhgesdm
+
+# Or source the env vars
+source sandbox_env.sh
+echo $CSP_ACCOUNT_ID    # 8ce6e4ed-ec1f-40f4-8340-91f20f4d26aa
+echo $STUDENT_TENANT    # yfu3kuhgesdm
 ```
 
-### Test Cleanup Locally
+### Manual Test - Cleanup
 ```bash
 export BROKER_API_TOKEN="<your_token>"
 export INSTRUQT_PARTICIPANT_ID="test-student-123"
