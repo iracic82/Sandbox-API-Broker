@@ -35,6 +35,10 @@ BROKER_API_TOKEN = os.environ.get("BROKER_API_TOKEN")
 INSTRUQT_SANDBOX_ID = os.environ.get("INSTRUQT_PARTICIPANT_ID")
 INSTRUQT_TRACK_ID = os.environ.get("INSTRUQT_TRACK_SLUG", "unknown-lab")
 
+# Optional: Filter sandboxes by name prefix (e.g., "lab-adventure")
+# Only allocate sandboxes whose names start with this prefix
+SANDBOX_NAME_PREFIX = os.environ.get("SANDBOX_NAME_PREFIX")
+
 # Output files
 SANDBOX_ID_FILE = "sandbox_id.txt"
 EXTERNAL_ID_FILE = "external_id.txt"
@@ -56,6 +60,8 @@ if not INSTRUQT_SANDBOX_ID:
 
 print(f"🎓 Student: {INSTRUQT_SANDBOX_ID}", flush=True)
 print(f"📚 Lab: {INSTRUQT_TRACK_ID}", flush=True)
+if SANDBOX_NAME_PREFIX:
+    print(f"🔍 Filter: Only allocate sandboxes starting with '{SANDBOX_NAME_PREFIX}'", flush=True)
 
 # ----------------------------------
 # Allocate Sandbox from Broker
@@ -67,6 +73,10 @@ headers = {
     "X-Instruqt-Sandbox-ID": INSTRUQT_SANDBOX_ID,
     "X-Instruqt-Track-ID": INSTRUQT_TRACK_ID,
 }
+
+# Add optional name prefix filter (server-side filtering)
+if SANDBOX_NAME_PREFIX:
+    headers["X-Sandbox-Name-Prefix"] = SANDBOX_NAME_PREFIX
 
 max_retries = 5
 retryable_statuses = {500, 502, 503, 504}

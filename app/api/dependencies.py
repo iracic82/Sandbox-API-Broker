@@ -89,3 +89,21 @@ async def get_idempotency_key(
     if idempotency_key:
         return idempotency_key.strip()
     return None
+
+
+async def get_sandbox_name_prefix(
+    x_sandbox_name_prefix: Optional[str] = Header(None, alias="X-Sandbox-Name-Prefix")
+) -> Optional[str]:
+    """
+    Extract optional sandbox name prefix filter from header.
+
+    When provided, the broker will only allocate sandboxes whose names start with this prefix.
+    This allows different labs to use different subsets of the sandbox pool.
+
+    Examples:
+    - X-Sandbox-Name-Prefix: lab-adventure → matches lab-adventure-100, lab-adventure-xyz
+    - X-Sandbox-Name-Prefix: start-lab → matches start-lab-test, start-lab-prod-123
+    """
+    if x_sandbox_name_prefix:
+        return x_sandbox_name_prefix.strip()
+    return None

@@ -8,6 +8,7 @@ from app.api.dependencies import (
     get_instruqt_sandbox_id,
     get_instruqt_track_id,
     get_idempotency_key,
+    get_sandbox_name_prefix,
 )
 from app.schemas.sandbox import (
     AllocateResponse,
@@ -44,6 +45,7 @@ async def allocate_sandbox(
     instruqt_sandbox_id: str = Depends(get_instruqt_sandbox_id),
     instruqt_track_id: Optional[str] = Depends(get_instruqt_track_id),
     idempotency_key: Optional[str] = Depends(get_idempotency_key),
+    name_prefix: Optional[str] = Depends(get_sandbox_name_prefix),
     _token: str = Depends(verify_track_token),
 ):
     """
@@ -53,10 +55,14 @@ async def allocate_sandbox(
     - Authorization: Bearer <token>
     - X-Instruqt-Sandbox-ID: <unique_sandbox_id> (preferred) OR X-Track-ID: <sandbox_id> (legacy)
     - X-Instruqt-Track-ID: <lab_identifier> (optional, for analytics)
+    - X-Sandbox-Name-Prefix: <name_prefix> (optional, filter sandboxes by name)
     - Idempotency-Key: <optional_key> (defaults to sandbox_id)
 
     The X-Instruqt-Sandbox-ID should be the unique identifier for the student's sandbox instance,
     NOT the lab/track identifier. Multiple students can run the same lab simultaneously.
+
+    The X-Sandbox-Name-Prefix allows filtering sandboxes by name prefix (e.g., "lab-adventure").
+    Only sandboxes whose names start with this prefix will be allocated.
     """
     request_id = str(uuid.uuid4())
 
@@ -65,6 +71,7 @@ async def allocate_sandbox(
             track_id=instruqt_sandbox_id,  # Internal code still uses 'track_id' variable name
             idempotency_key=idempotency_key,
             instruqt_track_id=instruqt_track_id,  # Pass optional lab identifier
+            name_prefix=name_prefix,  # Pass optional name filter
         )
 
         # Check if this was idempotent (existing allocation)

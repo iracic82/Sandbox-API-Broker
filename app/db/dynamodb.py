@@ -96,21 +96,40 @@ class DynamoDBClient:
         except ClientError as e:
             raise Exception(f"DynamoDB error getting sandbox: {e}")
 
-    async def get_available_candidates(self, k: int = 15) -> list[Sandbox]:
-        """Get K available sandbox candidates from GSI1."""
+    async def get_available_candidates(self, k: int = 15, name_prefix: Optional[str] = None) -> list[Sandbox]:
+        """
+        Get K available sandbox candidates from GSI1.
+
+        Args:
+            k: Number of candidates to return
+            name_prefix: Optional name prefix filter (e.g., "lab-adventure")
+
+        Returns:
+            List of available sandboxes (filtered by name if prefix provided)
+        """
         try:
+            # Query more items if filtering by name (to ensure we get enough matches)
+            query_limit = k * 3 if name_prefix else k
+
             response = self.table.query(
                 IndexName=settings.ddb_gsi1_name,
                 KeyConditionExpression="#status = :status",
                 ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={":status": SandboxStatus.AVAILABLE.value},
-                Limit=k,
+                Limit=query_limit,
             )
 
             sandboxes = [self._from_item(item) for item in response.get("Items", [])]
+
+            # Filter by name prefix if specified
+            if name_prefix:
+                sandboxes = [sb for sb in sandboxes if sb.name.startswith(name_prefix)]
+
             # Shuffle to avoid thundering herd
             random.shuffle(sandboxes)
-            return sandboxes
+
+            # Return up to k candidates
+            return sandboxes[:k]
 
         except ClientError as e:
             raise Exception(f"DynamoDB error querying available sandboxes: {e}")

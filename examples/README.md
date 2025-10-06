@@ -30,9 +30,12 @@ python3 instruqt_broker_allocation.py
 - `BROKER_API_TOKEN` (required) - Your broker API token
 - `INSTRUQT_PARTICIPANT_ID` (auto) - Unique per student, provided by Instruqt
 - `INSTRUQT_TRACK_SLUG` (auto) - Lab identifier, provided by Instruqt (saved as `track_name` for analytics)
+- `SANDBOX_NAME_PREFIX` (optional) - Filter sandboxes by name prefix (e.g., "lab-adventure")
 - `BROKER_API_URL` (optional) - Default: production URL
 
 > **Note:** The lab identifier (`INSTRUQT_TRACK_SLUG`) is optional but recommended - it's saved to the broker for analytics and allows you to query "which sandboxes are allocated to lab X".
+
+> **New Feature:** Use `SANDBOX_NAME_PREFIX` to filter which sandboxes can be allocated. For example, set `SANDBOX_NAME_PREFIX=lab-adventure` to only allocate sandboxes whose names start with "lab-adventure". This allows multiple labs to share the same sandbox pool while each lab uses a specific subset.
 
 **Output Files:**
 - `sandbox_id.txt` - Broker's internal sandbox ID
@@ -236,6 +239,43 @@ export INSTRUQT_PARTICIPANT_ID="test-student-123"
 # After allocation creates sandbox_id.txt
 python3 instruqt_broker_cleanup.py
 ```
+
+---
+
+## Sandbox Name Filtering
+
+The broker supports **optional name prefix filtering** to allow different labs to use different subsets of the sandbox pool.
+
+### How It Works
+
+When you set the `SANDBOX_NAME_PREFIX` environment variable, the broker will only allocate sandboxes whose names start with that prefix.
+
+**Example Scenario:**
+- **Sandbox Pool**: Contains `sandbox-1`, `sandbox-2`, `lab-adventure-100`, `lab-adventure-101`, `lab-security-50`, `lab-security-51`
+- **Lab A** (Adventure Lab): Sets `SANDBOX_NAME_PREFIX=lab-adventure`
+  - Students in Lab A will ONLY get sandboxes: `lab-adventure-100`, `lab-adventure-101`
+- **Lab B** (Security Lab): Sets `SANDBOX_NAME_PREFIX=lab-security`
+  - Students in Lab B will ONLY get sandboxes: `lab-security-50`, `lab-security-51`
+- **Lab C** (General Lab): No prefix set
+  - Students in Lab C can get ANY available sandbox
+
+### Usage in Instruqt
+
+Add the environment variable to your track configuration:
+
+```bash
+# In Instruqt track environment variables
+SANDBOX_NAME_PREFIX=lab-adventure
+```
+
+The allocation script will automatically send this as the `X-Sandbox-Name-Prefix` header to the broker.
+
+### Benefits
+
+- ✅ **One sandbox pool, multiple labs** - No need to create separate tenants or brokers
+- ✅ **Server-side filtering** - Efficient, no wasted allocations
+- ✅ **Flexible naming** - Supports any prefix pattern (e.g., `lab-adventure`, `start-lab-adventure`, `prod-`)
+- ✅ **Backward compatible** - Labs without prefix can still use all sandboxes
 
 ---
 

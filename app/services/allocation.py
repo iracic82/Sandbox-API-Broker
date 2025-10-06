@@ -50,6 +50,7 @@ class AllocationService:
         track_id: str,
         idempotency_key: Optional[str] = None,
         instruqt_track_id: Optional[str] = None,
+        name_prefix: Optional[str] = None,
     ) -> Sandbox:
         """
         Allocate a sandbox to an Instruqt sandbox instance with idempotency and retry logic.
@@ -58,6 +59,7 @@ class AllocationService:
             track_id: The unique Instruqt sandbox ID (per-student instance, not lab identifier)
             idempotency_key: Optional idempotency key (uses track_id if not provided)
             instruqt_track_id: Optional lab/track identifier (for grouping and analytics)
+            name_prefix: Optional sandbox name prefix filter (e.g., "lab-adventure")
 
         Returns:
             Allocated Sandbox
@@ -79,8 +81,11 @@ class AllocationService:
                 allocation_latency.labels(outcome="idempotent").observe(time.time() - start_time)
                 return existing
 
-            # Step 2: K-candidate fan-out strategy
-            candidates = await self.db.get_available_candidates(k=settings.k_candidates)
+            # Step 2: K-candidate fan-out strategy (with optional name filtering)
+            candidates = await self.db.get_available_candidates(
+                k=settings.k_candidates,
+                name_prefix=name_prefix
+            )
 
             if not candidates:
                 allocate_total.labels(outcome="no_sandboxes").inc()
