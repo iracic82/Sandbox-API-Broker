@@ -173,6 +173,50 @@ async def auto_expiry_job():
             continue  # Normal interval timeout, run again
 
 
+async def auto_delete_stale_job():
+    """
+    Auto-delete stale sandboxes job - runs every 24 hours (86400s).
+
+    Deletes stale sandboxes (no longer in CSP) that have been stale for >24h.
+    This provides operators time to investigate before auto-deletion.
+    """
+    job_name = "auto_delete_stale_job"
+    interval_sec = 86400  # 24 hours
+    grace_period_hours = 24
+
+    print(f"[{job_name}] Starting (interval: {interval_sec}s, grace period: {grace_period_hours}h)")
+
+    while not _shutdown_event.is_set():
+        try:
+            print(f"[{job_name}] Running auto-delete stale...")
+            result = await admin_service.auto_delete_stale_sandboxes(grace_period_hours)
+            log_request(
+                request_id=f"job-auto-delete-stale-{int(time.time())}",
+                action="background_auto_delete_stale",
+                outcome="success",
+                latency_ms=result["duration_ms"],
+                message=f"Auto-deleted {result['deleted']} stale sandboxes (older than {grace_period_hours}h)",
+            )
+        except Exception as e:
+            log_request(
+                request_id=f"job-auto-delete-stale-{int(time.time())}",
+                action="background_auto_delete_stale",
+                outcome="error",
+                error=str(e),
+                message=f"Auto-delete stale job failed: {e}",
+            )
+
+        # Wait for next interval (or shutdown)
+        try:
+            await asyncio.wait_for(
+                _shutdown_event.wait(),
+                timeout=interval_sec
+            )
+            break  # Shutdown requested
+        except asyncio.TimeoutError:
+            continue  # Normal interval timeout, run again
+
+
 def start_background_jobs():
     """
     Start all background jobs as asyncio tasks.
@@ -188,6 +232,7 @@ def start_background_jobs():
         asyncio.create_task(sync_job(), name="sync_job"),
         asyncio.create_task(cleanup_job(), name="cleanup_job"),
         asyncio.create_task(auto_expiry_job(), name="auto_expiry_job"),
+        asyncio.create_task(auto_delete_stale_job(), name="auto_delete_stale_job"),
     ]
 
     print(f"✅ Started {len(_scheduler_tasks)} background jobs")

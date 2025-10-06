@@ -325,6 +325,80 @@ class AdminService:
             print(f"Bulk delete failed: {e}")
             raise
 
+    async def auto_delete_stale_sandboxes(
+        self, grace_period_hours: int = 24
+    ) -> Dict[str, Any]:
+        """
+        Automatically delete stale sandboxes older than grace period.
+
+        Stale sandboxes are those that no longer exist in CSP but remain in DynamoDB.
+        This gives operators time to investigate before auto-deletion.
+
+        Args:
+            grace_period_hours: How long to wait before auto-deleting (default: 24h)
+
+        Returns:
+            Dict with deleted count and duration
+        """
+        start_time = time.time()
+        deleted_count = 0
+        current_time = int(time.time())
+        grace_period_seconds = grace_period_hours * 3600
+
+        try:
+            # Query all stale sandboxes
+            response = self.db.table.query(
+                IndexName="StatusIndex",
+                KeyConditionExpression="#status = :status",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={":status": SandboxStatus.STALE.value},
+            )
+
+            items = response.get("Items", [])
+
+            # Handle pagination
+            while "LastEvaluatedKey" in response:
+                response = self.db.table.query(
+                    IndexName="StatusIndex",
+                    KeyConditionExpression="#status = :status",
+                    ExpressionAttributeNames={"#status": "status"},
+                    ExpressionAttributeValues={":status": SandboxStatus.STALE.value},
+                    ExclusiveStartKey=response["LastEvaluatedKey"],
+                )
+                items.extend(response.get("Items", []))
+
+            # Delete sandboxes older than grace period
+            for item in items:
+                sandbox_id = item.get("sandbox_id")
+                updated_at = int(item.get("updated_at", 0))
+
+                # Check if sandbox is older than grace period
+                age_seconds = current_time - updated_at
+                if age_seconds >= grace_period_seconds:
+                    # Delete from DynamoDB
+                    self.db.table.delete_item(
+                        Key={
+                            "PK": f"SBX#{sandbox_id}",
+                            "SK": "META",
+                        }
+                    )
+                    deleted_count += 1
+                    print(
+                        f"Auto-deleted stale sandbox {sandbox_id} "
+                        f"(stale for {age_seconds / 3600:.1f} hours)"
+                    )
+
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            return {
+                "deleted": deleted_count,
+                "duration_ms": duration_ms,
+                "grace_period_hours": grace_period_hours,
+            }
+        except Exception as e:
+            print(f"Auto-delete stale sandboxes failed: {e}")
+            raise
+
     async def _get_all_sandbox_ids(self) -> set:
         """Get all sandbox IDs from DynamoDB."""
         sandbox_ids = set()

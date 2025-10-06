@@ -168,11 +168,14 @@ POST /v1/admin/cleanup
 Headers:
   Authorization: Bearer <admin_token>
 
-# Bulk delete sandboxes by status
+# Bulk delete sandboxes by status (manual cleanup)
 POST /v1/admin/bulk-delete?status=stale
 Headers:
   Authorization: Bearer <admin_token>
-# Use cases: Clean up stale sandboxes, remove deletion_failed after manual CSP cleanup
+# Use cases:
+# - Clean up stale sandboxes immediately (before 24h auto-cleanup)
+# - Remove deletion_failed sandboxes after manual CSP cleanup
+# Note: Stale sandboxes are automatically deleted after 24 hours by background job
 ```
 
 ### Observability

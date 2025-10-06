@@ -189,3 +189,39 @@ async def bulk_delete_sandboxes(
         "deleted": result.get("deleted", 0),
         "duration_ms": result.get("duration_ms", 0),
     }
+
+
+@router.post(
+    "/auto-delete-stale",
+    responses={
+        200: {"description": "Auto-delete completed"},
+        401: {"description": "Unauthorized"},
+        403: {"description": "Admin access required"},
+    },
+)
+async def auto_delete_stale_sandboxes(
+    request: Request,
+    grace_period_hours: int = Query(24, description="Grace period in hours before deletion"),
+    _token: str = Depends(verify_admin_token),
+):
+    """
+    Automatically delete stale sandboxes older than grace period.
+
+    Stale sandboxes are those that no longer exist in CSP but remain in DynamoDB.
+    This endpoint is called by the background job scheduler (daily at 2 AM).
+
+    Query Parameters:
+    - grace_period_hours: Hours to wait before deleting stale sandboxes (default: 24)
+
+    Use cases:
+    - Scheduled background job (runs daily)
+    - Manual trigger for immediate cleanup with custom grace period
+    """
+    result = await admin_service.auto_delete_stale_sandboxes(grace_period_hours)
+
+    return {
+        "status": "completed",
+        "deleted": result.get("deleted", 0),
+        "duration_ms": result.get("duration_ms", 0),
+        "grace_period_hours": result.get("grace_period_hours", 24),
+    }
