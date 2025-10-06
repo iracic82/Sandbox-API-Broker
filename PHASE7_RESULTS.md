@@ -865,6 +865,72 @@ Phase 7 successfully delivers and executes a comprehensive test suite:
 
 ---
 
+## 🚀 Post-Phase 7 Production Enhancements
+
+### Enhancement 1: Track Name Analytics (2025-10-05 Evening)
+**Added**: Optional `track_name` field for lab analytics
+
+**What Changed**:
+- Added `track_name` field to Sandbox model (stores lab identifier from `X-Instruqt-Track-ID` header)
+- Updated DynamoDB to conditionally store track_name (only when provided)
+- Added `track_name` to all API responses (SandboxResponse schema)
+- Updated Swagger/OpenAPI documentation automatically
+
+**Benefits**:
+- Query "which sandboxes are allocated to lab X"
+- Analytics on lab usage patterns
+- Better visibility into sandbox allocation by lab/track
+
+**API Impact**:
+- Backward compatible - field is optional
+- With header: `track_name` stored in DynamoDB
+- Without header: `track_name` field absent (efficient)
+- API responses: `track_name: null` when not provided
+
+**Deployment**:
+- ECS task definition revision 3
+- Commit: `95a07f3`, `7226037`, `3a369d3`
+
+---
+
+### Enhancement 2: Automated Stale Cleanup (2025-10-05 Late Evening)
+**Added**: Background job for automatic stale sandbox cleanup with 24h grace period
+
+**What Changed**:
+- Added `auto_delete_stale_sandboxes()` method to admin service
+- Added `POST /v1/admin/auto-delete-stale` endpoint
+- Added `auto_delete_stale_job()` background task (runs every 24 hours)
+- Updated README with manual cleanup documentation
+
+**How It Works**:
+1. T+0: Sandbox deleted from CSP manually
+2. T+10min: Sync job marks it as `stale` (sets `updated_at`)
+3. T+24h: Auto-delete job deletes if older than grace period
+4. Result: Database stays clean, 24h investigation window
+
+**Benefits**:
+- Automatic database cleanup (no manual intervention)
+- 24h grace period for investigation
+- Manual override available for immediate cleanup
+- CloudWatch logs provide audit trail
+
+**API Endpoints**:
+- `POST /v1/admin/bulk-delete?status=stale` - Immediate cleanup (manual)
+- `POST /v1/admin/auto-delete-stale?grace_period_hours=24` - Trigger with custom grace period
+
+**Background Jobs**: Now 4 total
+- Sync job (every 10 min)
+- Cleanup job (every 5 min)
+- Auto-expiry job (every 5 min)
+- **Auto-delete stale job (every 24 hours)** ← NEW
+
+**Deployment**:
+- ECS task definition revision 4
+- Commit: `6c9b85d`
+- Verified in CloudWatch logs: `[auto_delete_stale_job] Starting (interval: 86400s, grace period: 24h)`
+
+---
+
 **Owner**: Igor Racic
-**Phase**: 7 - Testing & Load Testing (COMPLETED)
-**Date**: 2025-10-05
+**Phase**: 7 - Testing & Load Testing (COMPLETED) + Post-Phase 7 Enhancements
+**Date**: 2025-10-05 (Phase 7) + 2025-10-05 Evening (Enhancements)
