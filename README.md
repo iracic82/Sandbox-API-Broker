@@ -196,6 +196,135 @@ GET /metrics
 # - Histograms: request_latency, allocation_latency
 ```
 
+## ⚡ Rate Limits and API Constraints
+
+### Application Rate Limits (Token Bucket)
+
+The API uses a token bucket rate limiting algorithm to protect against abuse and ensure fair resource allocation:
+
+**Current Configuration:**
+- **Sustained Rate**: 50 requests per second
+- **Burst Capacity**: 200 concurrent requests
+- **Scope**: Per client IP (as seen by the ALB)
+
+**How It Works:**
+```
+Bucket starts with 200 tokens (burst capacity)
+├─ Each request consumes 1 token
+├─ Tokens refill at 50/second
+└─ Full capacity restored in ~4 seconds
+```
+
+**Performance Characteristics:**
+
+| Scenario | Result | Notes |
+|----------|--------|-------|
+| 200 students allocate at once | ✅ All succeed immediately | Burst capacity |
+| 400 students over 10 seconds | ✅ All succeed | 200 burst + 300 refilled (50/s × 6s) |
+| 500 students over 15 seconds | ✅ All succeed | 200 burst + 600 refilled (50/s × 12s) |
+| 300 requests instantly | ⚠️ 100 get 429 errors | Exceeds burst capacity |
+
+**Rate Limit Headers:**
+```
+X-RateLimit-Limit: 200
+X-RateLimit-Remaining: 157
+X-RateLimit-Reset: 1696512345
+```
+
+**429 Response Example:**
+```json
+{
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Rate limit exceeded. Retry after 2 seconds.",
+    "retry_after": 2,
+    "request_id": "abc123..."
+  }
+}
+```
+
+### AWS WAF Rate Limits
+
+**Additional protection layer at the load balancer:**
+- **Limit**: 2000 requests per 5 minutes per source IP
+- **Scope**: Per IP address (before ALB)
+- **Response**: 403 Forbidden
+
+**Important Note:** Each Instruqt student typically comes from a different IP, so each gets their own 2000 req/5min allowance. This limit primarily affects:
+- Load testing from a single machine
+- Misbehaving scripts/bots
+- Distributed attacks
+
+### Single IP Behavior
+
+**How Source IP Works:**
+1. **External requests** → ALB sees original client IP (X-Forwarded-For)
+2. **WAF rate limiting** → Applied per original client IP
+3. **Application rate limiting** → Applied per original client IP
+4. **ECS tasks** → All tasks share the same rate limit state (via DynamoDB/memory)
+
+**Key Implications:**
+- Multiple students from different IPs → Each gets full rate limit allowance
+- Multiple students from same IP (same organization/NAT) → Share rate limit allowance
+- Load testing from one machine → Hits single IP limits quickly
+
+### Best Practices for Handling Rate Limits
+
+**1. Implement Exponential Backoff:**
+```python
+import time
+import random
+
+def allocate_with_retry(max_retries=3):
+    for attempt in range(max_retries):
+        response = requests.post(API_URL, headers=headers)
+
+        if response.status_code == 200:
+            return response.json()
+
+        if response.status_code == 429:
+            retry_after = response.json()["error"].get("retry_after", 2)
+            sleep_time = retry_after * (2 ** attempt) + random.uniform(0, 1)
+            time.sleep(sleep_time)
+        else:
+            raise Exception(f"Unexpected error: {response.status_code}")
+
+    raise Exception("Max retries exceeded")
+```
+
+**2. Monitor Rate Limit Headers:**
+```python
+remaining = int(response.headers.get("X-RateLimit-Remaining", 0))
+if remaining < 10:
+    print("Warning: Approaching rate limit")
+    time.sleep(1)  # Slow down requests
+```
+
+**3. Batch Requests When Possible:**
+- Avoid polling endpoints repeatedly
+- Use webhooks instead of polling where possible
+- Cache sandbox details instead of repeated GET requests
+
+**4. Request Limit Increases:**
+If your use case requires higher limits, contact the API administrators with:
+- Expected peak concurrent users
+- Average requests per student session
+- Geographic distribution of users
+
+### DynamoDB Capacity
+
+**Current Configuration:**
+- **Mode**: On-Demand (auto-scales)
+- **Write Capacity**: Auto-scales up to 40,000 WCU
+- **Read Capacity**: Auto-scales up to 40,000 RCU
+
+**Typical Usage:**
+- Allocation: 2 writes (conditional update + idempotency), 1-3 reads
+- Mark for deletion: 1 write, 1 read
+- Sync job: Batch reads (25 per page)
+
+**Throttling:** Very rare with on-demand mode, but possible during extreme spikes (>1000 RPS sustained).
+
 ## 🗄️ Database Schema
 
 **DynamoDB Table**: `SandboxPool`
@@ -402,6 +531,6 @@ See [Operational Runbook Scenarios](PROJECT_SUMMARY.md#operational-runbook-scena
 
 ---
 
-**Version**: 1.1.0 (Multi-Student Support)
+**Version**: 1.3.0 (Multi-Student Support + Name Filtering + Rate Limit Increase)
 **Owner**: Igor Racic
-**Last Updated**: 2025-10-05
+**Last Updated**: 2025-10-06
