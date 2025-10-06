@@ -90,7 +90,7 @@ Example: `Authorization: Bearer your_token_here`
 
 # Add middleware (order matters: first added = outermost layer)
 app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(RateLimitMiddleware, requests_per_second=10, burst=20)
+app.add_middleware(RateLimitMiddleware, requests_per_second=50, burst=200)
 app.add_middleware(LoggingMiddleware)
 
 # CORS configuration (restrictive for production API)
