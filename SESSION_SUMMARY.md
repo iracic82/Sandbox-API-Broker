@@ -1,6 +1,70 @@
 # Session Summary - Production Complete with Multi-Student Support & Analytics
 
-## 📋 Latest Session (2025-10-05 Evening) - Track Name Analytics Feature
+## 📋 Latest Session (2025-10-05 Late Evening) - Automated Stale Cleanup
+
+### ✅ Automated Stale Sandbox Cleanup with 24h Grace Period (NEW)
+**Problem**: Stale sandboxes (no longer in CSP) remained in DynamoDB indefinitely, requiring manual cleanup.
+
+**Solution**: Implemented hybrid approach with automated cleanup and 24h grace period for investigation.
+
+**Implementation**:
+- Added `auto_delete_stale_sandboxes()` method to admin service (`app/services/admin.py`)
+- Added `POST /v1/admin/auto-delete-stale` endpoint for manual trigger (`app/api/admin_routes.py`)
+- Added `auto_delete_stale_job()` background task that runs every 24 hours (`app/jobs/scheduler.py`)
+- Updated README.md to document manual cleanup process
+
+**How It Works**:
+1. **T+0**: Sandbox deleted from CSP manually
+2. **T+10min**: Sync job marks it as `stale` (sets `updated_at` timestamp)
+3. **T+24h**: Auto-delete job checks age, deletes if >24h old
+4. **Result**: Database stays clean, operators have 24h to investigate
+
+**Grace Period Logic**:
+- Queries all stale sandboxes using StatusIndex GSI
+- Checks `updated_at` timestamp to calculate age
+- Deletes only sandboxes where `age >= grace_period_hours * 3600`
+- Logs each deletion with age information
+
+**Manual Override Options**:
+- **Immediate cleanup**: `POST /v1/admin/bulk-delete?status=stale` (skip grace period)
+- **Custom grace period**: `POST /v1/admin/auto-delete-stale?grace_period_hours=X`
+
+**Background Job**:
+- Runs every 24 hours (86400s)
+- Default grace period: 24 hours
+- Logs results to CloudWatch with structured JSON
+- Action: `background_auto_delete_stale`
+
+**Testing**:
+- ✅ Deployed to production
+- ✅ Verified 4 background jobs running (was 3, now 4)
+- ✅ Job logs show: `[auto_delete_stale_job] Starting (interval: 86400s, grace period: 24h)`
+- ✅ First run: Auto-deleted 0 stale sandboxes (none older than 24h)
+
+**Deployment**:
+- Built Docker image: `sha256:860bff7bc7ff...`
+- Registered ECS task definition revision 4
+- Deployed to `sandbox-broker-cluster` service (2 tasks)
+- ✅ Production verified - background job active
+
+**Files Modified**:
+- `app/services/admin.py` - Added auto_delete_stale_sandboxes() method (400 lines)
+- `app/api/admin_routes.py` - Added auto-delete-stale endpoint (228 lines)
+- `app/jobs/scheduler.py` - Added auto_delete_stale_job() background task (251 lines)
+- `README.md` - Documented manual process and auto-cleanup
+
+**Commit**:
+- `6c9b85d` - Add automated stale sandbox cleanup with 24h grace period
+
+**Benefits**:
+- ✅ Database stays clean automatically
+- ✅ 24h investigation window before deletion
+- ✅ Manual override available for immediate cleanup
+- ✅ CloudWatch logs provide audit trail
+
+---
+
+## 📋 Earlier Session (2025-10-05 Evening) - Track Name Analytics Feature
 
 ### ✅ Track Name Field for Lab Analytics (NEW)
 **Problem**: System tracked student IDs but not lab/track names - couldn't answer "which sandboxes are allocated to lab X?"
@@ -224,6 +288,6 @@
 
 ---
 
-**Version**: 1.2.0 (Multi-Student Support + Bulk Delete + Track Name Analytics)
-**Last Updated**: 2025-10-05 Evening
+**Version**: 1.3.0 (Multi-Student Support + Bulk Delete + Track Name Analytics + Automated Stale Cleanup)
+**Last Updated**: 2025-10-05 Late Evening
 **Owner**: Igor Racic
