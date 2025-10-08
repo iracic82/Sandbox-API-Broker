@@ -75,11 +75,14 @@ See [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) for detailed implementation plan an
 - ✅ **Phase 4**: Enhanced Security & Resilience (rate limiting, security headers, circuit breaker, CORS)
 - ✅ **Phase 5**: ENG CSP Production Integration (real API calls, mock/production mode, error handling)
 - ✅ **Phase 6**: AWS Production Deployment (49/49 resources, HTTPS, multi-AZ, auto-scaling)
-- ✅ **Phase 7**: Testing & Load Testing (33/33 unit tests passing, 18/20 integration tests, multi-student load test with ZERO double-allocations)
+- ✅ **Phase 7**: Testing & Load Testing (53/53 tests passing, multi-student load test with ZERO double-allocations)
+- ✅ **Phase 8**: Production Fixes & Worker Service (rate limiter fix, CORS updates, worker service separation, metrics caching)
 
 **Status**: 🚀 **PRODUCTION LIVE** - `https://api-sandbox-broker.highvelocitynetworking.com/v1`
 
-**Next Phase**: Phase 8 - CI/CD & Deployment Pipeline (GitHub Actions, automated testing, ECR push)
+**Latest Deployment**: 2025-10-08 - All critical fixes deployed, comprehensive observability configured
+
+**Next Phase**: Phase 9 - GameDay Testing & Chaos Engineering
 
 ## 🔑 Key Features
 
@@ -457,6 +460,31 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for step-by-step deployment instr
 
 ## 📊 Metrics & Monitoring
 
+### Comprehensive Observability
+
+**See [OBSERVABILITY.md](OBSERVABILITY.md) for complete troubleshooting guide**
+
+**CloudWatch Logs** (30-day retention):
+- API logs: `/ecs/sandbox-broker`
+- Worker logs: `/ecs/sandbox-broker-worker`
+- Structured JSON format with request_id, action, outcome, latency_ms
+
+**Metric Filters** (6 configured):
+- `APIErrors` - Track all API errors
+- `NoSandboxesAvailable` - Pool exhaustion alerts
+- `HighLatencyRequests` - Performance monitoring (>1s)
+- `WorkerErrors` - Background job failures
+- `WorkerJobFailures` - Job-specific errors
+- `CSPAPIErrors` - CSP integration issues
+
+**CloudWatch Insights Queries** (6 saved):
+- All Errors - Quick error investigation
+- Allocation Failures - Debug allocation issues
+- Slow Requests - Performance troubleshooting
+- Worker Jobs - Monitor background jobs
+- Rate Limit Hits - Identify clients hitting limits
+- CSP API Calls - Debug CSP integration
+
 **Prometheus Metrics**:
 - `broker_allocate_total` - Total allocation requests
 - `broker_deletion_marked_total` - Total deletion marks
@@ -464,8 +492,21 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for step-by-step deployment instr
 - `broker_pool_available` - Available sandboxes gauge
 - `broker_pool_allocated` - Allocated sandboxes gauge
 - `broker_conflict_total` - Allocation conflicts
+- `http_request_duration_seconds` - Request latency histogram
+- Plus 20+ additional metrics
 
-**CloudWatch Logs**: Structured JSON with request_id, track_id, sandbox_id, action, outcome, latency_ms
+**Quick Status Check**:
+```bash
+# Check pool status
+curl -s https://api-sandbox-broker.highvelocitynetworking.com/metrics | grep broker_pool
+
+# Check ECS services
+aws ecs describe-services --cluster sandbox-broker-cluster \
+  --services sandbox-broker sandbox-broker-worker \
+  --region eu-central-1 --profile okta-sso \
+  --query 'services[*].{Name:serviceName,Running:runningCount,Desired:desiredCount}' \
+  --output table
+```
 
 ## 🔐 Security
 
@@ -474,10 +515,23 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for step-by-step deployment instr
 
 ## 📚 Documentation
 
-- **API Documentation (Swagger UI)**: https://api-sandbox-broker.highvelocitynetworking.com/v1/docs
+### API Documentation
+- **Swagger UI**: https://api-sandbox-broker.highvelocitynetworking.com/v1/docs
 - **OpenAPI Spec**: https://api-sandbox-broker.highvelocitynetworking.com/v1/openapi.json
+
+### Operational Guides
+- [OBSERVABILITY.md](OBSERVABILITY.md) - Complete troubleshooting & monitoring guide
+- [ROLLBACK_PLAN.md](ROLLBACK_PLAN.md) - Emergency rollback procedures
+- [DEPLOYMENT_SUCCESS.md](DEPLOYMENT_SUCCESS.md) - Latest deployment report (2025-10-08)
+- [TEST_SUMMARY.md](TEST_SUMMARY.md) - Test results (53/53 passing)
+
+### Design & Implementation
 - [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - Full implementation plan & design
-- [PHASE7_RESULTS.md](PHASE7_RESULTS.md) - Testing results & load test verification
+- [FIXES_SUMMARY.md](FIXES_SUMMARY.md) - Production fixes changelog
+- [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) - DynamoDB schema details
+- [API_LIMITS.md](API_LIMITS.md) - Rate limits and constraints
+
+### Requirements
 - [Sandbox_Broker_API_Requirements.pdf](/Users/iracic/Downloads/Sandbox_Broker_API_Requirements.pdf) - Original requirements
 
 ## 🛠️ Configuration
@@ -499,13 +553,32 @@ CLEANUP_BATCH_DELAY_SEC=2.0     # Throttling: delay between batches
 
 ## 🐛 Troubleshooting
 
-See [Operational Runbook Scenarios](PROJECT_SUMMARY.md#operational-runbook-scenarios) in PROJECT_SUMMARY.md
+**See [OBSERVABILITY.md](OBSERVABILITY.md) for comprehensive troubleshooting guide**
+
+### Quick Diagnostics
+
+```bash
+# 1. Check API health
+curl https://api-sandbox-broker.highvelocitynetworking.com/healthz
+
+# 2. Check pool status
+curl -s https://api-sandbox-broker.highvelocitynetworking.com/metrics | grep broker_pool
+
+# 3. Check for errors
+aws logs tail /ecs/sandbox-broker --since 10m --region eu-central-1 --profile okta-sso | grep ERROR
+
+# 4. Run saved CloudWatch Insights query
+# Go to CloudWatch Console → Insights → Saved queries → "Sandbox-Broker-All-Errors"
+```
 
 **Common Issues**:
-- Pool exhaustion → Increase ENG CSP pool size
-- Cleanup failures → Check ENG CSP API health, query `status='deletion_failed'`
-- Orphaned allocations → Auto-expiry handles after 4.5h
-- Stuck deletions → Manual intervention for `deletion_failed` status
+- **Pool exhaustion** → Check `broker_pool_available` metric, increase CSP pool size
+- **Cleanup failures** → Run "Worker Jobs" Insights query, check CSP API health
+- **Orphaned allocations** → Auto-expiry handles after 4.5h
+- **High latency** → Run "Slow Requests" Insights query, check DynamoDB throttling
+- **Worker not running** → Check ECS service status, verify 1 task running
+
+**CloudWatch Insights Queries**: 6 saved queries available in CloudWatch Console for instant troubleshooting
 
 ## 🗺️ Roadmap
 
@@ -516,10 +589,10 @@ See [Operational Runbook Scenarios](PROJECT_SUMMARY.md#operational-runbook-scena
 - [x] **Phase 4**: Enhanced Security (Rate Limiting, Security Headers, Circuit Breaker, CORS)
 - [x] **Phase 5**: ENG CSP Production Integration (Real API calls, Authentication, Error Handling)
 - [x] **Phase 6**: AWS Infrastructure (Terraform, ECS Fargate, ALB, Secrets Manager, IAM, CloudWatch)
-- [x] **Phase 7**: Testing (Unit, Integration, Load Tests @1000 RPS)
-- [ ] **Phase 8**: Deployment & CI/CD (GitHub Actions, ECR, ECS Deploy)
+- [x] **Phase 7**: Testing (53/53 tests passing, Load Tests, Zero Double-Allocations)
+- [x] **Phase 8**: Production Fixes & Worker Service (Rate limiter, CORS, Metrics caching, Worker separation)
 - [ ] **Phase 9**: GameDay Testing & Chaos Engineering
-- [ ] **Phase 10**: Production Hardening & Documentation
+- [ ] **Phase 10**: CI/CD Pipeline (GitHub Actions, ECR, ECS Deploy)
 
 ## 📝 License
 
@@ -531,6 +604,7 @@ See [Operational Runbook Scenarios](PROJECT_SUMMARY.md#operational-runbook-scena
 
 ---
 
-**Version**: 1.3.0 (Multi-Student Support + Name Filtering + Rate Limit Increase)
+**Version**: 1.4.0 (Production Deployment + Worker Service + Comprehensive Observability)
 **Owner**: Igor Racic
-**Last Updated**: 2025-10-06
+**Last Updated**: 2025-10-08
+**Production Status**: ✅ LIVE - All services healthy, 53/53 tests passing

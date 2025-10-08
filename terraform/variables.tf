@@ -64,6 +64,19 @@ variable "ecs_autoscaling_max" {
   default     = 10
 }
 
+# Worker Configuration
+variable "worker_cpu" {
+  description = "CPU units for worker task (256, 512, 1024, etc.)"
+  type        = number
+  default     = 256
+}
+
+variable "worker_memory" {
+  description = "Memory (MB) for worker task"
+  type        = number
+  default     = 512
+}
+
 # Container Configuration
 variable "container_image" {
   description = "Docker image URI (ECR or Docker Hub)"

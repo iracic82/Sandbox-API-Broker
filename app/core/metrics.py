@@ -1,11 +1,18 @@
 """Prometheus metrics for monitoring."""
 
+import time
 from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from prometheus_client import CollectorRegistry
 from typing import Optional
 
 # Create a custom registry to avoid conflicts
 registry = CollectorRegistry()
+
+# Cache for pool gauges to avoid scanning DynamoDB on every /metrics request
+_pool_gauges_cache = {
+    "last_update": 0,
+    "cache_ttl_seconds": 60,  # Cache for 60 seconds
+}
 
 # ============================================================================
 # Counters - Monotonically increasing values
@@ -172,13 +179,24 @@ cleanup_duration = Histogram(
 # Helper Functions
 # ============================================================================
 
-async def update_pool_gauges(db_client):
+async def update_pool_gauges(db_client, force: bool = False):
     """
-    Update all pool gauge metrics from DynamoDB.
+    Update all pool gauge metrics from DynamoDB with caching.
+
+    Args:
+        db_client: DynamoDB client
+        force: If True, bypass cache and force update
 
     Should be called periodically (e.g., every 30s) or after pool changes.
+    Cache prevents expensive DB scans on every /metrics request.
     """
     from app.models.sandbox import SandboxStatus
+
+    # Check cache - only update if TTL expired or forced
+    current_time = time.time()
+    if not force and (current_time - _pool_gauges_cache["last_update"]) < _pool_gauges_cache["cache_ttl_seconds"]:
+        # Cache is still valid, skip update
+        return
 
     stats = {
         "total": 0,
@@ -189,7 +207,7 @@ async def update_pool_gauges(db_client):
         "deletion_failed": 0,
     }
 
-    # Scan all sandboxes (in production, use CloudWatch metrics instead)
+    # Scan all sandboxes (cached for 60s to avoid overwhelming Prometheus scrapes)
     response = db_client.table.scan()
 
     for item in response.get("Items", []):
@@ -205,6 +223,9 @@ async def update_pool_gauges(db_client):
     pool_pending_deletion.set(stats["pending_deletion"])
     pool_stale.set(stats["stale"])
     pool_deletion_failed.set(stats["deletion_failed"])
+
+    # Update cache timestamp
+    _pool_gauges_cache["last_update"] = current_time
 
 
 def get_metrics() -> tuple[bytes, str]:

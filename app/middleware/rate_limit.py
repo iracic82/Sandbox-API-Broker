@@ -61,7 +61,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """
     Rate limiting middleware with per-client token buckets.
 
-    Uses X-Track-ID header or client IP for identification.
+    Uses X-Instruqt-Sandbox-ID or X-Track-ID header or client IP for identification.
     Implements token bucket algorithm for smooth rate limiting.
     """
 
@@ -89,8 +89,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path in ["/healthz", "/readyz", "/metrics"]:
             return await call_next(request)
 
-        # Identify client (prefer X-Track-ID, fallback to IP)
-        client_id = request.headers.get("X-Track-ID")
+        # Identify client (prefer X-Instruqt-Sandbox-ID, fallback to X-Track-ID, then IP)
+        client_id = request.headers.get("X-Instruqt-Sandbox-ID")
+        if not client_id:
+            client_id = request.headers.get("X-Track-ID")
         if not client_id:
             client_id = request.client.host if request.client else "unknown"
 

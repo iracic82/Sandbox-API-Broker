@@ -47,7 +47,7 @@ async def test_multiple_students_same_lab_different_sandboxes():
             # Mock atomic_allocate to succeed on first try for each student
             allocated_sandboxes = []
 
-            async def mock_atomic_allocate(sandbox_id, track_id, idempotency_key, current_time):
+            async def mock_atomic_allocate(sandbox_id, track_id, idempotency_key, current_time, track_name=None):
                 # Allocate the sandbox to this specific student
                 if sandbox_id == "sbx-001" and "student1" in track_id:
                     allocated = Sandbox(
@@ -182,7 +182,7 @@ async def test_legacy_header_backward_compatibility():
     with patch.object(service.db, 'find_allocation_by_idempotency_key', new=AsyncMock(return_value=None)):
         with patch.object(service.db, 'get_available_candidates', new=AsyncMock(return_value=[sandbox])):
 
-            async def mock_allocate(sandbox_id, track_id, idempotency_key, current_time):
+            async def mock_allocate(sandbox_id, track_id, idempotency_key, current_time, track_name=None):
                 allocated = Sandbox(
                     sandbox_id=sandbox.sandbox_id,
                     name=sandbox.name,

@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     metrics_port: int = 9090
     enable_request_id: bool = True
 
+    # CORS Configuration
+    cors_allowed_origins: str = "*"  # Comma-separated list, e.g., "https://app1.com,https://app2.com"
+
     @property
     def lab_duration_seconds(self) -> int:
         """Get lab duration in seconds."""

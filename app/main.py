@@ -12,7 +12,6 @@ from app.api.metrics_routes import router as metrics_router
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
-from app.jobs import start_background_jobs, stop_background_jobs
 from app import __version__
 
 
@@ -94,13 +93,28 @@ app.add_middleware(RateLimitMiddleware, requests_per_second=50, burst=200)
 app.add_middleware(LoggingMiddleware)
 
 # CORS configuration (restrictive for production API)
+# Parse comma-separated origins from settings
+cors_origins = [origin.strip() for origin in settings.cors_allowed_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production: replace with specific origins
+    allow_origins=cors_origins,  # Configured via CORS_ALLOWED_ORIGINS env var
     allow_credentials=False,  # No cookies for this API
     allow_methods=["GET", "POST"],  # Only needed methods
-    allow_headers=["Authorization", "Content-Type", "X-Track-ID", "Idempotency-Key"],
-    expose_headers=["X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Track-ID",  # Legacy header
+        "X-Instruqt-Sandbox-ID",  # Preferred sandbox ID header
+        "X-Instruqt-Track-ID",  # Optional track/lab ID header
+        "X-Sandbox-Name-Prefix",  # Optional sandbox name filter header
+        "Idempotency-Key",
+    ],
+    expose_headers=[
+        "X-Request-ID",
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "Retry-After",  # For rate limit responses
+    ],
     max_age=3600,  # Cache preflight for 1 hour
 )
 
@@ -164,19 +178,14 @@ async def startup_event():
     if settings.ddb_endpoint_url:
         print(f"🔧 Using local DynamoDB: {settings.ddb_endpoint_url}")
 
-    # Start background jobs
-    print(f"⏱️  Background jobs:")
-    print(f"   - Sync: every {settings.sync_interval_sec}s")
-    print(f"   - Cleanup: every {settings.cleanup_interval_sec}s")
-    print(f"   - Auto-expiry: every {settings.auto_expiry_interval_sec}s")
-    start_background_jobs()
+    print("ℹ️  Background jobs are handled by separate worker service")
+    print("   Run: python -m app.jobs.worker")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Run on application shutdown."""
     print("👋 Sandbox Broker API shutting down...")
-    await stop_background_jobs()
 
 
 if __name__ == "__main__":

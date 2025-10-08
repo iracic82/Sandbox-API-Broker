@@ -274,7 +274,7 @@ class AdminService:
             # Query sandboxes by status using GSI1
             if status_filter:
                 response = self.db.table.query(
-                    IndexName="StatusIndex",
+                    IndexName=settings.ddb_gsi1_name,
                     KeyConditionExpression="#status = :status",
                     ExpressionAttributeNames={"#status": "status"},
                     ExpressionAttributeValues={":status": status_filter.value},
@@ -289,7 +289,7 @@ class AdminService:
             while "LastEvaluatedKey" in response:
                 if status_filter:
                     response = self.db.table.query(
-                        IndexName="StatusIndex",
+                        IndexName=settings.ddb_gsi1_name,
                         KeyConditionExpression="#status = :status",
                         ExpressionAttributeNames={"#status": "status"},
                         ExpressionAttributeValues={":status": status_filter.value},
@@ -348,7 +348,7 @@ class AdminService:
         try:
             # Query all stale sandboxes
             response = self.db.table.query(
-                IndexName="StatusIndex",
+                IndexName=settings.ddb_gsi1_name,
                 KeyConditionExpression="#status = :status",
                 ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={":status": SandboxStatus.STALE.value},
@@ -359,7 +359,7 @@ class AdminService:
             # Handle pagination
             while "LastEvaluatedKey" in response:
                 response = self.db.table.query(
-                    IndexName="StatusIndex",
+                    IndexName=settings.ddb_gsi1_name,
                     KeyConditionExpression="#status = :status",
                     ExpressionAttributeNames={"#status": "status"},
                     ExpressionAttributeValues={":status": SandboxStatus.STALE.value},
