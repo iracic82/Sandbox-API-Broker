@@ -109,7 +109,8 @@ class DynamoDBClient:
         """
         try:
             # Query more items if filtering by name (to ensure we get enough matches)
-            query_limit = k * 3 if name_prefix else k
+            # Use 1000 (DynamoDB max) when filtering to search entire available pool
+            query_limit = 1000 if name_prefix else k
 
             response = self.table.query(
                 IndexName=settings.ddb_gsi1_name,
