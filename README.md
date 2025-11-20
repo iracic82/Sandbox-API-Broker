@@ -548,7 +548,7 @@ CSP_API_TOKEN=<csp_token>
 LAB_DURATION_HOURS=4
 K_CANDIDATES=15
 CLEANUP_BATCH_SIZE=10           # Throttling: sandboxes per batch
-CLEANUP_BATCH_DELAY_SEC=2.0     # Throttling: delay between batches
+CLEANUP_BATCH_DELAY_SEC=30.0    # Throttling: delay between batches (updated 2025-11-20)
 ```
 
 ## 🐛 Troubleshooting
