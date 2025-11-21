@@ -168,6 +168,7 @@ class AdminService:
             # Process in batches with throttling to avoid overwhelming ENG CSP API
             batch_size = settings.cleanup_batch_size
             batch_delay = settings.cleanup_batch_delay_sec
+            per_sandbox_delay = settings.cleanup_per_sandbox_delay_sec
 
             for i in range(0, len(pending_sandboxes), batch_size):
                 batch = pending_sandboxes[i:i + batch_size]
@@ -202,6 +203,11 @@ class AdminService:
                         failed_count += 1
                         cleanup_failed.inc()
                         print(f"Failed to delete {sandbox.sandbox_id}: {e}")
+
+                    # Rate limiting: delay between individual deletions within batch
+                    if per_sandbox_delay > 0 and sandbox != batch[-1]:
+                        import asyncio
+                        await asyncio.sleep(per_sandbox_delay)
 
                 # Throttling: delay between batches (unless this is the last batch)
                 if i + batch_size < len(pending_sandboxes):

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     cleanup_interval_sec: int = 300
     cleanup_batch_size: int = 10  # Process N sandboxes per batch
     cleanup_batch_delay_sec: float = 2.0  # Delay between batches (throttling)
+    cleanup_per_sandbox_delay_sec: float = 0.0  # Delay between individual deletions (rate limiting)
     auto_expiry_interval_sec: int = 300
 
     # ENG CSP Integration
