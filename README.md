@@ -80,7 +80,11 @@ See [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) for detailed implementation plan an
 
 **Status**: 🚀 **PRODUCTION LIVE** - `https://api-sandbox-broker.highvelocitynetworking.com/v1`
 
-**Latest Deployment**: 2025-10-08 - All critical fixes deployed, comprehensive observability configured
+**Latest Deployment**: 2026-04-08 - SFDC Account ID, NIOSXaaS cleanup, Instruqt lifecycle scripts, 48h lab duration
+
+**Dashboard**: https://broker-dashboard.highvelocitynetworking.com
+
+**Instruqt Scripts** (`scripts/`): `allocation_broker_subtenant.py` → `user_provision.py` → `user_cleanup.py` → `deallocation_broker_subtenant.py`
 
 **Next Phase**: Phase 9 - GameDay Testing & Chaos Engineering
 
@@ -90,8 +94,26 @@ See [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) for detailed implementation plan an
 1. **Allocate** - Track requests sandbox via `POST /v1/allocate`
 2. **Use** - Student uses sandbox for lab (up to 4 hours)
 3. **Mark for Deletion** - Track calls `POST /v1/sandboxes/{id}/mark-for-deletion` when student stops
-4. **Cleanup** - Background job deletes from ENG CSP within ~5 minutes
-5. **Safety Net** - Auto-expiry after 4.5h if track crashes
+4. **NIOSXaaS Cleanup** - Background job deletes NIOSXaaS universal services from sandbox account
+5. **CSP Deletion** - Background job deletes sandbox from ENG CSP within ~5 minutes
+6. **Safety Net** - Auto-expiry after 48.5h if track crashes
+
+### NIOSXaaS Cleanup (New)
+
+When sandboxes are deleted, any NIOSXaaS universal services created within them would be orphaned. The cleanup process automatically:
+
+1. Authenticates with CSP using service account credentials
+2. Switches to the sandbox account context
+3. Lists all universal services in the sandbox
+4. Deletes services matching the configured name filter (default: `Instrqt-SaaS`)
+5. Logs cleanup result (success/skipped/failed) for dashboard statistics
+
+**Key Features:**
+- **Non-blocking**: NIOSXaaS failures don't prevent CSP sandbox deletion
+- **Circuit breaker**: Protects against cascading failures
+- **Shadow mode**: Test without actual deletions
+- **Statistics**: Dashboard shows cleanup metrics (Cleaned, Skipped, Failed, Pending)
+- **TTL**: Cleanup records auto-delete after 30 days
 
 ### Concurrency Strategy
 - **Atomic allocation** via DynamoDB conditional writes
@@ -121,11 +143,12 @@ Headers:
 
 Response:
   {
-    "sandbox_id": "2012224",
-    "name": "sandbox-1",
-    "external_id": "af06cbf7-b07c-4c4f-bfa4-bd7dd0e2d4c3",  # Use this to connect to CSP
+    "sandbox_id": "2026839",
+    "name": "lab-adventure-0087",
+    "external_id": "1e96e538-f8f1-4d52-8778-a122c284f03c",  # Use this to connect to CSP
     "allocated_at": 1728054123,
-    "expires_at": 1728070323
+    "expires_at": 1728054123,
+    "sfdc_account_id": "001SAND122c284f03c"
   }
 
 # Mark sandbox for deletion
@@ -330,18 +353,35 @@ If your use case requires higher limits, contact the API administrators with:
 
 ## 🗄️ Database Schema
 
-**DynamoDB Table**: `SandboxPool`
+**DynamoDB Table**: `sandbox-broker-pool`
+
+### Sandbox Records (SBX#)
 
 **Primary Key**:
 - PK: `SBX#{sandbox_id}`
 - SK: `META`
 
 **Attributes**:
-- `sandbox_id`, `name`, `external_id`
+- `sandbox_id`, `name`, `external_id`, `sfdc_account_id`
 - `status`: `available` | `allocated` | `pending_deletion` | `stale` | `deletion_failed`
 - `allocated_to_track`, `allocated_at`
 - `deletion_requested_at`, `deletion_retry_count`
 - `idempotency_key`, `last_synced`
+- `niosxaas_cleaned_at`, `niosxaas_cleanup_skipped`, `niosxaas_cleanup_failed_reason` (cleanup tracking)
+
+### NIOSXaaS Cleanup Records (NIOSXAAS#)
+
+**Primary Key**:
+- PK: `NIOSXAAS#{sandbox_id}`
+- SK: `CLEANUP`
+
+**Attributes**:
+- `sandbox_id`, `sandbox_name`, `external_id`, `track_name`
+- `niosxaas_cleaned_at`, `niosxaas_cleanup_skipped`, `niosxaas_cleanup_failed_reason`
+- `deleted_at` - when CSP sandbox was deleted
+- `ttl` - auto-delete after 30 days (DynamoDB TTL)
+
+These records preserve cleanup statistics after sandbox deletion for dashboard reporting.
 
 **Global Secondary Indexes**:
 1. **StatusIndex** (GSI1): `status` + `allocated_at`
@@ -493,6 +533,9 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for step-by-step deployment instr
 - `broker_pool_allocated` - Allocated sandboxes gauge
 - `broker_conflict_total` - Allocation conflicts
 - `http_request_duration_seconds` - Request latency histogram
+- `niosxaas_cleanup_total{outcome}` - NIOSXaaS cleanup attempts (success/skipped/failed/error)
+- `niosxaas_services_deleted_total` - Total NIOSXaaS services deleted
+- `niosxaas_auth_total{outcome}` - NIOSXaaS authentication attempts
 - Plus 20+ additional metrics
 
 **Quick Status Check**:
@@ -540,16 +583,28 @@ See [PROJECT_SUMMARY.md - Configuration Parameters](PROJECT_SUMMARY.md#configura
 
 Key environment variables:
 ```bash
+# Core Configuration
 BROKER_API_TOKEN=<track_token>
 BROKER_ADMIN_TOKEN=<admin_token>
 DDB_TABLE_NAME=SandboxPool
 CSP_BASE_URL=https://eng.csp.example.com
 CSP_API_TOKEN=<csp_token>
-LAB_DURATION_HOURS=4
+LAB_DURATION_HOURS=48
 K_CANDIDATES=15
-CLEANUP_BATCH_SIZE=10           # Throttling: sandboxes per batch
-CLEANUP_BATCH_DELAY_SEC=30.0          # Throttling: delay between batches (updated 2025-11-20)
-CLEANUP_PER_SANDBOX_DELAY_SEC=0.0     # Rate limiting: delay between individual deletions (default: 0, no delay)
+
+# Cleanup Throttling
+CLEANUP_BATCH_SIZE=10                 # Sandboxes per batch
+CLEANUP_BATCH_DELAY_SEC=30.0          # Delay between batches
+CLEANUP_PER_SANDBOX_DELAY_SEC=30.0    # Delay between individual deletions
+
+# NIOSXaaS Cleanup (Worker only)
+NIOSXAAS_ENABLED=true                 # Enable NIOSXaaS cleanup
+NIOSXAAS_BASE_URL=https://csp.infoblox.com
+NIOSXAAS_EMAIL=<from_secrets_manager> # Service account email
+NIOSXAAS_PASSWORD=<from_secrets_manager> # Service account password
+NIOSXAAS_SERVICE_NAME=Instrqt-SaaS    # Filter by service name (empty = all)
+NIOSXAAS_TIMEOUT_SEC=30               # API timeout per operation
+NIOSXAAS_SHADOW_MODE=false            # Log only, don't delete (for testing)
 ```
 
 ## 🐛 Troubleshooting
@@ -575,9 +630,10 @@ aws logs tail /ecs/sandbox-broker --since 10m --region eu-central-1 --profile ok
 **Common Issues**:
 - **Pool exhaustion** → Check `broker_pool_available` metric, increase CSP pool size
 - **Cleanup failures** → Run "Worker Jobs" Insights query, check CSP API health
-- **Orphaned allocations** → Auto-expiry handles after 4.5h
+- **Orphaned allocations** → Auto-expiry handles after 48.5h
 - **High latency** → Run "Slow Requests" Insights query, check DynamoDB throttling
 - **Worker not running** → Check ECS service status, verify 1 task running
+- **Pause deletions during CSP outage** → See `WORKER_FREEZE_RUNBOOK.md` to scale worker to 0 and resume
 
 **CloudWatch Insights Queries**: 6 saved queries available in CloudWatch Console for instant troubleshooting
 
@@ -605,7 +661,7 @@ aws logs tail /ecs/sandbox-broker --since 10m --region eu-central-1 --profile ok
 
 ---
 
-**Version**: 1.4.0 (Production Deployment + Worker Service + Comprehensive Observability)
+**Version**: 1.6.0 (SFDC Account ID + Instruqt Scripts + 48h Lab Duration)
 **Owner**: Igor Racic
-**Last Updated**: 2025-10-08
-**Production Status**: ✅ LIVE - All services healthy, 53/53 tests passing
+**Last Updated**: 2026-04-08
+**Production Status**: ✅ LIVE - API healthy, worker paused (CSP maintenance)
