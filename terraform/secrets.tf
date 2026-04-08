@@ -46,3 +46,34 @@ resource "aws_secretsmanager_secret_version" "csp_api_token" {
   secret_id     = aws_secretsmanager_secret.csp_api_token.id
   secret_string = var.csp_api_token
 }
+
+# NIOSXaaS Credentials
+resource "aws_secretsmanager_secret" "niosxaas_email" {
+  name_prefix             = "${var.app_name}-niosxaas-email-"
+  description             = "NIOSXaaS service account email"
+  recovery_window_in_days = 7
+
+  tags = {
+    Name = "${var.app_name}-niosxaas-email"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "niosxaas_email" {
+  secret_id     = aws_secretsmanager_secret.niosxaas_email.id
+  secret_string = var.niosxaas_email
+}
+
+resource "aws_secretsmanager_secret" "niosxaas_password" {
+  name_prefix             = "${var.app_name}-niosxaas-password-"
+  description             = "NIOSXaaS service account password"
+  recovery_window_in_days = 7
+
+  tags = {
+    Name = "${var.app_name}-niosxaas-password"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "niosxaas_password" {
+  secret_id     = aws_secretsmanager_secret.niosxaas_password.id
+  secret_string = var.niosxaas_password
+}

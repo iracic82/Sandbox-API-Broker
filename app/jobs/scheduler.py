@@ -68,12 +68,18 @@ async def cleanup_job():
         try:
             print(f"[{job_name}] Running cleanup...")
             result = await admin_service.trigger_cleanup()
+
+            # Build log message with optional NIOSXaaS stats
+            msg = f"Deleted {result['deleted']} sandboxes, {result['failed']} failed"
+            if result.get("niosxaas_cleaned", 0) + result.get("niosxaas_skipped", 0) + result.get("niosxaas_failed", 0) > 0:
+                msg += f". NIOSXaaS: {result.get('niosxaas_cleaned', 0)} cleaned, {result.get('niosxaas_skipped', 0)} skipped, {result.get('niosxaas_failed', 0)} failed"
+
             log_request(
                 request_id=f"job-cleanup-{int(time.time())}",
                 action="background_cleanup",
                 outcome="success",
                 latency_ms=result["duration_ms"],
-                message=f"Deleted {result['deleted']} sandboxes, {result['failed']} failed",
+                message=msg,
             )
         except Exception as e:
             log_request(

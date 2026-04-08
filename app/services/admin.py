@@ -6,6 +6,8 @@ from app.core.config import settings
 from app.db.dynamodb import db_client
 from app.models.sandbox import Sandbox, SandboxStatus
 from app.services.eng_csp import eng_csp_service
+from app.services.niosxaas import niosxaas_service
+from app.core.logging import log_request
 from app.core.metrics import (
     sync_total,
     sync_sandboxes_synced,
@@ -15,6 +17,7 @@ from app.core.metrics import (
     cleanup_deleted,
     cleanup_failed,
     cleanup_duration,
+    niosxaas_cleanup_total,
 )
 
 
@@ -98,6 +101,7 @@ class AdminService:
                     last_synced=int(time.time()),
                     created_at=eng_sb.get("created_at", int(time.time())),
                     updated_at=int(time.time()),
+                    sfdc_account_id=eng_sb.get("sfdc_account_id", ""),
                 )
 
                 # Only upsert if not allocated or pending deletion
@@ -164,6 +168,9 @@ class AdminService:
 
             deleted_count = 0
             failed_count = 0
+            niosxaas_cleaned = 0
+            niosxaas_skipped = 0
+            niosxaas_failed = 0
 
             # Process in batches with throttling to avoid overwhelming ENG CSP API
             batch_size = settings.cleanup_batch_size
@@ -175,10 +182,61 @@ class AdminService:
 
                 for sandbox in batch:
                     try:
-                        # Delete from ENG CSP (uses external_id to extract UUID)
+                        # Step 1: NIOSXaaS cleanup (before CSP deletion)
+                        # Only if enabled and not already cleaned
+                        if settings.niosxaas_enabled and not sandbox.niosxaas_cleaned_at:
+                            try:
+                                niosxaas_result = await niosxaas_service.cleanup_sandbox(
+                                    sandbox.external_id,
+                                    sandbox.sandbox_id,
+                                )
+
+                                # Track cleanup status
+                                sandbox.niosxaas_cleaned_at = int(time.time())
+
+                                if niosxaas_result.success:
+                                    if niosxaas_result.skipped:
+                                        sandbox.niosxaas_cleanup_skipped = True
+                                        niosxaas_skipped += 1
+                                        niosxaas_cleanup_total.labels(outcome="skipped").inc()
+                                    else:
+                                        niosxaas_cleaned += 1
+                                        niosxaas_cleanup_total.labels(outcome="success").inc()
+                                else:
+                                    # NIOSXaaS failed - log alert but continue with deletion
+                                    sandbox.niosxaas_cleanup_failed_reason = niosxaas_result.error
+                                    niosxaas_failed += 1
+                                    niosxaas_cleanup_total.labels(outcome="failed").inc()
+                                    log_request(
+                                        request_id=f"cleanup-niosxaas-{sandbox.sandbox_id}",
+                                        action="niosxaas_cleanup",
+                                        outcome="warning",
+                                        error=niosxaas_result.error,
+                                        message=f"NIOSXaaS cleanup failed for {sandbox.sandbox_id}, continuing with CSP deletion: {niosxaas_result.error}",
+                                    )
+
+                            except Exception as niosxaas_error:
+                                # NIOSXaaS exception - log alert but continue
+                                sandbox.niosxaas_cleaned_at = int(time.time())
+                                sandbox.niosxaas_cleanup_failed_reason = str(niosxaas_error)
+                                niosxaas_failed += 1
+                                niosxaas_cleanup_total.labels(outcome="error").inc()
+                                log_request(
+                                    request_id=f"cleanup-niosxaas-{sandbox.sandbox_id}",
+                                    action="niosxaas_cleanup",
+                                    outcome="error",
+                                    error=str(niosxaas_error),
+                                    message=f"NIOSXaaS cleanup exception for {sandbox.sandbox_id}, continuing with CSP deletion: {niosxaas_error}",
+                                )
+
+                        # Step 2: Delete from ENG CSP (uses external_id to extract UUID)
                         success = await eng_csp_service.delete_sandbox(sandbox.external_id)
 
                         if success:
+                            # Save NIOSXaaS cleanup stats before hard-deleting
+                            if sandbox.niosxaas_cleaned_at:
+                                await self.db.save_niosxaas_cleanup_record(sandbox)
+
                             # Remove from DynamoDB
                             self.db.table.delete_item(
                                 Key={"PK": f"SBX#{sandbox.sandbox_id}", "SK": "META"}
@@ -221,10 +279,23 @@ class AdminService:
             cleanup_total.labels(outcome="success").inc()
             cleanup_duration.observe(duration_sec)
 
+            # Log summary if NIOSXaaS was involved
+            if settings.niosxaas_enabled and (niosxaas_cleaned + niosxaas_skipped + niosxaas_failed) > 0:
+                log_request(
+                    request_id=f"cleanup-{int(time.time())}",
+                    action="cleanup_with_niosxaas",
+                    outcome="success",
+                    latency_ms=duration_ms,
+                    message=f"Cleanup complete: {deleted_count} deleted, {failed_count} failed. NIOSXaaS: {niosxaas_cleaned} cleaned, {niosxaas_skipped} skipped, {niosxaas_failed} failed",
+                )
+
             return {
                 "deleted": deleted_count,
                 "failed": failed_count,
                 "duration_ms": duration_ms,
+                "niosxaas_cleaned": niosxaas_cleaned,
+                "niosxaas_skipped": niosxaas_skipped,
+                "niosxaas_failed": niosxaas_failed,
             }
         except Exception as e:
             cleanup_total.labels(outcome="error").inc()

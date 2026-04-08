@@ -100,6 +100,27 @@ expiry_orphaned = Counter(
     registry=registry,
 )
 
+# NIOSXaaS cleanup metrics
+niosxaas_cleanup_total = Counter(
+    "broker_niosxaas_cleanup_total",
+    "Total NIOSXaaS cleanup attempts",
+    ["outcome"],  # success, skipped, failed, error
+    registry=registry,
+)
+
+niosxaas_services_deleted = Counter(
+    "broker_niosxaas_services_deleted_total",
+    "Total NIOSXaaS universal services deleted",
+    registry=registry,
+)
+
+niosxaas_auth_total = Counter(
+    "broker_niosxaas_auth_total",
+    "NIOSXaaS authentication attempts",
+    ["outcome"],  # success, failed
+    registry=registry,
+)
+
 # ============================================================================
 # Gauges - Current state values (can go up or down)
 # ============================================================================
@@ -171,6 +192,13 @@ cleanup_duration = Histogram(
     "broker_cleanup_duration_seconds",
     "Cleanup job duration in seconds",
     buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
+    registry=registry,
+)
+
+niosxaas_cleanup_duration = Histogram(
+    "broker_niosxaas_cleanup_duration_seconds",
+    "NIOSXaaS cleanup duration per sandbox",
+    buckets=[1.0, 5.0, 10.0, 15.0, 30.0, 60.0],
     registry=registry,
 )
 

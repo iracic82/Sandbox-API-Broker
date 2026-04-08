@@ -81,6 +81,7 @@ class EngCspService:
                             "name": sb.get("name", f"sandbox-{sb['id']}"),
                             "external_id": sb.get("id"),  # Full identity path as external_id
                             "created_at": created_at,
+                            "sfdc_account_id": sb.get("sfdc_account_id", ""),
                         })
 
                 print(f"[ENG CSP] Fetched {len(sandboxes)} active sandbox accounts")

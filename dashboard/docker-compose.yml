@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  dashboard:
+    build: .
+    container_name: sandbox-dashboard
+    ports:
+      - "8083:8083"
+    environment:
+      - AWS_REGION=eu-central-1
+      - DDB_TABLE_NAME=sandbox-broker-pool
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s

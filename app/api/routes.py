@@ -83,6 +83,7 @@ async def allocate_sandbox(
             external_id=sandbox.external_id,
             allocated_at=sandbox.allocated_at or 0,
             expires_at=sandbox.expires_at or 0,
+            sfdc_account_id=sandbox.sfdc_account_id,
         )
 
     except NoSandboxesAvailableError as e:
@@ -193,6 +194,7 @@ async def get_sandbox(
             allocated_at=sandbox.allocated_at,
             expires_at=sandbox.expires_at,
             track_name=sandbox.track_name,
+            sfdc_account_id=sandbox.sfdc_account_id,
         )
 
     except NotSandboxOwnerError as e:

@@ -13,6 +13,7 @@ class SandboxStatus(str, Enum):
     PENDING_DELETION = "pending_deletion"
     STALE = "stale"
     DELETION_FAILED = "deletion_failed"
+    DELETED = "deleted"  # Soft-deleted, keeps history for analytics
 
 
 class Sandbox:
@@ -34,6 +35,14 @@ class Sandbox:
         track_name: Optional[str] = None,
         created_at: Optional[int] = None,
         updated_at: Optional[int] = None,
+        # NIOSXaaS cleanup tracking
+        niosxaas_cleaned_at: Optional[int] = None,
+        niosxaas_cleanup_skipped: bool = False,
+        niosxaas_cleanup_failed_reason: Optional[str] = None,
+        # Soft-delete tracking
+        deleted_at: Optional[int] = None,
+        # SFDC integration
+        sfdc_account_id: Optional[str] = None,
     ):
         self.sandbox_id = sandbox_id
         self.name = name
@@ -49,6 +58,14 @@ class Sandbox:
         self.track_name = track_name
         self.created_at = created_at
         self.updated_at = updated_at
+        # NIOSXaaS cleanup tracking
+        self.niosxaas_cleaned_at = niosxaas_cleaned_at
+        self.niosxaas_cleanup_skipped = niosxaas_cleanup_skipped
+        self.niosxaas_cleanup_failed_reason = niosxaas_cleanup_failed_reason
+        # Soft-delete tracking
+        self.deleted_at = deleted_at
+        # SFDC integration
+        self.sfdc_account_id = sfdc_account_id
 
     @property
     def expires_at(self) -> Optional[int]:
@@ -90,4 +107,12 @@ class Sandbox:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "expires_at": self.expires_at,
+            # NIOSXaaS cleanup tracking
+            "niosxaas_cleaned_at": self.niosxaas_cleaned_at,
+            "niosxaas_cleanup_skipped": self.niosxaas_cleanup_skipped,
+            "niosxaas_cleanup_failed_reason": self.niosxaas_cleanup_failed_reason,
+            # Soft-delete tracking
+            "deleted_at": self.deleted_at,
+            # SFDC integration
+            "sfdc_account_id": self.sfdc_account_id,
         }

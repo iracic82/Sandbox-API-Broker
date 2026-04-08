@@ -30,6 +30,7 @@ class SandboxResponse(BaseModel):
     allocated_at: Optional[int] = Field(None, description="Unix timestamp of allocation")
     expires_at: Optional[int] = Field(None, description="Unix timestamp when allocation expires")
     track_name: Optional[str] = Field(None, description="Lab/track name (optional)")
+    sfdc_account_id: Optional[str] = Field(None, description="Salesforce account ID from CSP")
 
     class Config:
         from_attributes = True
@@ -43,6 +44,7 @@ class AllocateResponse(BaseModel):
     external_id: str
     allocated_at: int
     expires_at: int
+    sfdc_account_id: Optional[str] = None
 
     class Config:
         from_attributes = True

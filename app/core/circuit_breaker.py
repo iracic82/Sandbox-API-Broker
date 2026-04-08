@@ -196,3 +196,10 @@ eng_csp_circuit_breaker = CircuitBreaker(
     timeout_seconds=settings.circuit_breaker_timeout_sec,
     name="eng_csp",
 )
+
+# Circuit breaker for NIOSXaaS cleanup service (separate from CSP deletion)
+niosxaas_circuit_breaker = CircuitBreaker(
+    failure_threshold=settings.circuit_breaker_threshold,
+    timeout_seconds=settings.circuit_breaker_timeout_sec,
+    name="niosxaas",
+)

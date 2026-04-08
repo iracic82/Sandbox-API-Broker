@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  dashboard:
+    build: .
+    container_name: sandbox-dashboard
+    environment:
+      - AWS_REGION=eu-central-1
+      - DDB_TABLE_NAME=sandbox-broker-pool
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - dashboard-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: sandbox-dashboard-nginx
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./auth/.htpasswd:/etc/nginx/.htpasswd:ro
+    depends_on:
+      - dashboard
+    restart: unless-stopped
+    networks:
+      - dashboard-network
+
+networks:
+  dashboard-network:
+    driver: bridge

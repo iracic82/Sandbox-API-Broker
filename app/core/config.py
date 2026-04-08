@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     aws_secret_access_key: str | None = None
 
     # Sandbox Lifecycle
-    lab_duration_hours: int = 4
+    lab_duration_hours: int = 48
     grace_period_minutes: int = 30
     sync_interval_sec: int = 600
     cleanup_interval_sec: int = 300
@@ -55,6 +55,17 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     cors_allowed_origins: str = "*"  # Comma-separated list, e.g., "https://app1.com,https://app2.com"
+
+    # NIOSXaaS Cleanup Configuration
+    niosxaas_enabled: bool = False  # Feature flag - disabled by default for safety
+    niosxaas_base_url: str = "https://csp.infoblox.com"  # CSP base URL
+    niosxaas_email: str = ""  # Service account email (from Secrets Manager in prod)
+    niosxaas_password: str = ""  # Service account password (from Secrets Manager in prod)
+    niosxaas_service_name: str = "Instrqt-SaaS"  # Filter by name (empty = delete all services)
+    niosxaas_timeout_sec: int = 30  # API timeout per operation
+    niosxaas_cleanup_interval_sec: int = 60  # How often the cleanup job runs
+    niosxaas_per_sandbox_delay_sec: float = 30.0  # Rate limit delay between sandboxes
+    niosxaas_shadow_mode: bool = True  # Log operations but don't actually delete (safe default)
 
     @property
     def lab_duration_seconds(self) -> int:

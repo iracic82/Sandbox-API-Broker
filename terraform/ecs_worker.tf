@@ -7,7 +7,7 @@
 
 # Worker Task Definition
 resource "aws_ecs_task_definition" "worker" {
-  family                   = "${var.project_name}-worker"
+  family                   = "${var.app_name}-worker"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.worker_cpu
@@ -17,7 +17,7 @@ resource "aws_ecs_task_definition" "worker" {
 
   container_definitions = jsonencode([
     {
-      name  = "${var.project_name}-worker"
+      name  = "${var.app_name}-worker"
       image = "${aws_ecr_repository.sandbox_broker_api.repository_url}:latest"
 
       # Override command to run worker instead of API
@@ -77,6 +77,38 @@ resource "aws_ecs_task_definition" "worker" {
         {
           name  = "AUTO_EXPIRY_INTERVAL_SEC"
           value = "300"
+        },
+        # NIOSXaaS cleanup configuration (runs before CSP deletion)
+        {
+          name  = "NIOSXAAS_ENABLED"
+          value = tostring(var.niosxaas_enabled)
+        },
+        {
+          name  = "NIOSXAAS_BASE_URL"
+          value = var.niosxaas_base_url
+        },
+        {
+          name  = "NIOSXAAS_SERVICE_NAME"
+          value = var.niosxaas_service_name
+        },
+        {
+          name  = "NIOSXAAS_TIMEOUT_SEC"
+          value = "30"
+        },
+        {
+          name  = "NIOSXAAS_SHADOW_MODE"
+          value = tostring(var.niosxaas_shadow_mode)
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "NIOSXAAS_EMAIL"
+          valueFrom = aws_secretsmanager_secret.niosxaas_email.arn
+        },
+        {
+          name      = "NIOSXAAS_PASSWORD"
+          valueFrom = aws_secretsmanager_secret.niosxaas_password.arn
         }
       ]
 
@@ -93,24 +125,24 @@ resource "aws_ecs_task_definition" "worker" {
     }
   ])
 
-  tags = merge(var.common_tags, {
-    Name = "${var.project_name}-worker-task"
-  })
+  tags = {
+    Name = "${var.app_name}-worker-task"
+  }
 }
 
 # Worker CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "worker" {
-  name              = "/ecs/${var.project_name}-worker"
+  name              = "/ecs/${var.app_name}-worker"
   retention_in_days = var.log_retention_days
 
-  tags = merge(var.common_tags, {
-    Name = "${var.project_name}-worker-logs"
-  })
+  tags = {
+    Name = "${var.app_name}-worker-logs"
+  }
 }
 
 # Worker ECS Service (single task, no load balancer)
 resource "aws_ecs_service" "worker" {
-  name            = "${var.project_name}-worker"
+  name            = "${var.app_name}-worker"
   cluster         = aws_ecs_cluster.sandbox_broker.id
   task_definition = aws_ecs_task_definition.worker.arn
   desired_count   = 1  # Only 1 worker needed (no HA required for background jobs)
@@ -131,9 +163,9 @@ resource "aws_ecs_service" "worker" {
   # Enable ECS Exec for debugging
   enable_execute_command = true
 
-  tags = merge(var.common_tags, {
-    Name = "${var.project_name}-worker-service"
-  })
+  tags = {
+    Name = "${var.app_name}-worker-service"
+  }
 
   depends_on = [
     aws_iam_role_policy_attachment.ecs_execution_role_policy,
@@ -143,7 +175,7 @@ resource "aws_ecs_service" "worker" {
 
 # CloudWatch Alarms for Worker
 resource "aws_cloudwatch_metric_alarm" "worker_cpu_high" {
-  alarm_name          = "${var.project_name}-worker-cpu-high"
+  alarm_name          = "${var.app_name}-worker-cpu-high"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
   metric_name         = "CPUUtilization"
@@ -159,11 +191,11 @@ resource "aws_cloudwatch_metric_alarm" "worker_cpu_high" {
     ServiceName = aws_ecs_service.worker.name
   }
 
-  tags = var.common_tags
+  tags = {}
 }
 
 resource "aws_cloudwatch_metric_alarm" "worker_memory_high" {
-  alarm_name          = "${var.project_name}-worker-memory-high"
+  alarm_name          = "${var.app_name}-worker-memory-high"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
   metric_name         = "MemoryUtilization"
@@ -179,7 +211,7 @@ resource "aws_cloudwatch_metric_alarm" "worker_memory_high" {
     ServiceName = aws_ecs_service.worker.name
   }
 
-  tags = var.common_tags
+  tags = {}
 }
 
 # Outputs

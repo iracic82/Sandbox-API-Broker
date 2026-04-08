@@ -166,3 +166,42 @@ variable "auto_expiry_schedule" {
   type        = string
   default     = "rate(5 minutes)"
 }
+
+# NIOSXaaS Cleanup Configuration (integrated into main cleanup worker)
+variable "niosxaas_enabled" {
+  description = "Enable NIOSXaaS cleanup functionality"
+  type        = bool
+  default     = false
+}
+
+variable "niosxaas_shadow_mode" {
+  description = "Shadow mode: log operations but don't actually delete"
+  type        = bool
+  default     = true  # Safe default
+}
+
+variable "niosxaas_email" {
+  description = "NIOSXaaS service account email"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "niosxaas_password" {
+  description = "NIOSXaaS service account password"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "niosxaas_base_url" {
+  description = "NIOSXaaS API base URL"
+  type        = string
+  default     = "https://csp.infoblox.com"
+}
+
+variable "niosxaas_service_name" {
+  description = "Service name filter (empty = delete all services)"
+  type        = string
+  default     = "Instrqt-SaaS"  # Default service name from Instruqt labs
+}

@@ -57,6 +57,7 @@ async def list_sandboxes(
                 allocated_at=sb.allocated_at,
                 expires_at=sb.expires_at,
                 track_name=sb.track_name,
+                sfdc_account_id=sb.sfdc_account_id,
             )
             for sb in result["sandboxes"]
         ],

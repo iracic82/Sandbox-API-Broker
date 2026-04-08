@@ -65,6 +65,22 @@ class DynamoDBClient:
         if sandbox.updated_at:
             item["updated_at"] = sandbox.updated_at
 
+        # NIOSXaaS cleanup tracking
+        if sandbox.niosxaas_cleaned_at:
+            item["niosxaas_cleaned_at"] = sandbox.niosxaas_cleaned_at
+        if sandbox.niosxaas_cleanup_skipped:
+            item["niosxaas_cleanup_skipped"] = sandbox.niosxaas_cleanup_skipped
+        if sandbox.niosxaas_cleanup_failed_reason:
+            item["niosxaas_cleanup_failed_reason"] = sandbox.niosxaas_cleanup_failed_reason
+
+        # Soft-delete tracking
+        if sandbox.deleted_at:
+            item["deleted_at"] = sandbox.deleted_at
+
+        # SFDC integration
+        if sandbox.sfdc_account_id:
+            item["sfdc_account_id"] = sandbox.sfdc_account_id
+
         return item
 
     def _from_item(self, item: dict) -> Sandbox:
@@ -84,6 +100,14 @@ class DynamoDBClient:
             track_name=item.get("track_name"),
             created_at=int(item["created_at"]) if item.get("created_at") else None,
             updated_at=int(item["updated_at"]) if item.get("updated_at") else None,
+            # NIOSXaaS cleanup tracking
+            niosxaas_cleaned_at=int(item["niosxaas_cleaned_at"]) if item.get("niosxaas_cleaned_at") else None,
+            niosxaas_cleanup_skipped=bool(item.get("niosxaas_cleanup_skipped", False)),
+            niosxaas_cleanup_failed_reason=item.get("niosxaas_cleanup_failed_reason"),
+            # Soft-delete tracking
+            deleted_at=int(item["deleted_at"]) if item.get("deleted_at") else None,
+            # SFDC integration
+            sfdc_account_id=item.get("sfdc_account_id"),
         )
 
     async def get_sandbox(self, sandbox_id: str) -> Optional[Sandbox]:
@@ -266,6 +290,29 @@ class DynamoDBClient:
 
         except ClientError as e:
             raise Exception(f"DynamoDB error putting sandbox: {e}")
+
+    async def save_niosxaas_cleanup_record(self, sandbox: Sandbox) -> None:
+        """Save NIOSXaaS cleanup history record (separate from sandbox lifecycle)."""
+        try:
+            item = {
+                "PK": f"NIOSXAAS#{sandbox.sandbox_id}",
+                "SK": "CLEANUP",
+                "sandbox_id": sandbox.sandbox_id,
+                "sandbox_name": sandbox.name,
+                "external_id": sandbox.external_id,
+                "track_name": sandbox.track_name or "N/A",
+                "allocated_to_track": sandbox.allocated_to_track or "N/A",
+                "niosxaas_cleaned_at": sandbox.niosxaas_cleaned_at,
+                "niosxaas_cleanup_skipped": sandbox.niosxaas_cleanup_skipped,
+                "niosxaas_cleanup_failed_reason": sandbox.niosxaas_cleanup_failed_reason or "",
+                "deleted_at": int(time.time()),
+                "ttl": int(time.time()) + (30 * 24 * 60 * 60),  # Auto-delete after 30 days
+            }
+            self.table.put_item(Item=item)
+
+        except ClientError as e:
+            # Non-fatal: log but don't fail the cleanup
+            print(f"Warning: Failed to save NIOSXaaS cleanup record: {e}")
 
     async def create_table(self):
         """Create DynamoDB table with GSIs (for local development)."""
